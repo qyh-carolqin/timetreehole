@@ -1,0 +1,84 @@
+# ============================================================
+#  时间树洞 · 生产环境 Docker Compose
+#  包含: Node.js API + Nginx 反向代理 + SSL 自动续期
+#
+#  使用步骤:
+#  1. cp .env.example .env  并填入实际值
+#  2. 修改 nginx/conf.d/timetreehole.conf 中的域名
+#  3. docker compose -f docker-compose.prod.yml up -d
+#  4. 首次运行 certbot 获取 SSL 证书
+# ============================================================
+
+version: "3.8"
+
+services:
+  # ---- Node.js API 服务 ----
+  api:
+    build: .
+    container_name: timetreehole-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      # 持久化数据
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---- Nginx 反向代理 ----
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: timetreehole-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Nginx 配置
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # SSL 证书（由 certbot 管理）
+      - ./nginx/ssl:/etc/letsencrypt:ro
+      # Certbot 验证目录
+      - ./nginx/www:/var/www/certbot
+    networks:
+      - app-network
+    depends_on:
+      api:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---- Certbot SSL 证书自动续期 ----
+  certbot:
+    image: certbot/certbot:latest
+    container_name: timetreehole-certbot
+    restart: unless-stopped
+    volumes:
+      - ./nginx/ssl:/etc/letsencrypt
+      - ./nginx/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do sleep 12h & wait $${!}; certbot renew --quiet --deploy-hook \"docker exec timetreehole-nginx nginx -s reload\"; done'"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

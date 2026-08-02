@@ -1,0 +1,27 @@
+# 时间树洞 · Docker 构建忽略
+
+node_modules/
+.git/
+*.md
+.DS_Store
+.env
+.env.local
+.env.production
+
+# SSL 证书（由 certbot 运行时管理）
+nginx/ssl/*
+!nginx/ssl/.gitkeep
+nginx/www/*
+
+# 设计稿
+design-exports/
+.workbuddy/
+
+# 日志
+*.log
+npm-debug.log*
+
+# 临时文件
+*.tmp
+.DS_Store
+Thumbs.db

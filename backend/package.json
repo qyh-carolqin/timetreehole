@@ -1,0 +1,26 @@
+{
+  "name": "timetreehole-backend",
+  "version": "1.0.0",
+  "description": "时间树洞 · 后端服务 — 语音存储 / 匿名分享 / 回复推送",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node scripts/seed-demo.js",
+    "docker:build": "docker compose build --no-cache",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f api",
+    "prod:up": "docker compose -f docker-compose.prod.yml up -d",
+    "prod:down": "docker compose -f docker-compose.prod.yml down",
+    "prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
+    "prod:restart": "docker compose -f docker-compose.prod.yml restart api"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "cors": "^2.8.6",
+    "express": "^4.22.2",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^10.0.0"
+  }
+}

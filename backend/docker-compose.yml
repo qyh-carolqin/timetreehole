@@ -1,0 +1,27 @@
+# ============================================================
+#  时间树洞 · Docker Compose 一键部署
+#  使用: docker-compose up -d
+# ============================================================
+
+version: "3.8"
+
+services:
+  api:
+    build: .
+    container_name: timetreehole-api
+    ports:
+      - "3000:3000"
+    volumes:
+      # 持久化数据（数据库 + 音频文件）
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

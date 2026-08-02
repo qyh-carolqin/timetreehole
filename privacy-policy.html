@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间树洞 - 隐私政策</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
+            background: #0D1A0F;
+            color: #9BB8A0;
+            line-height: 1.8;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(13, 26, 15, 0.95);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid #1E2E20;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: center;
+            padding: 16px 0;
+            gap: 12px;
+        }
+
+        .back-arrow {
+            width: 24px;
+            height: 24px;
+            color: #8FD9B6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .back-arrow:hover {
+            opacity: 0.7;
+        }
+
+        .header-title {
+            color: #E8F5E9;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Hero Brand */
+        .brand {
+            text-align: center;
+            padding: 48px 0 32px;
+        }
+
+        .brand-icon {
+            width: 56px;
+            height: 70px;
+            margin: 0 auto 16px;
+        }
+
+        .brand-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .brand-title {
+            color: #E8F5E9;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: 4px;
+        }
+
+        .brand-subtitle {
+            color: #7A9A80;
+            font-size: 13px;
+            letter-spacing: 1px;
+        }
+
+        /* Content */
+        .content {
+            padding-bottom: 64px;
+        }
+
+        .updated-date {
+            color: #7A9A80;
+            font-size: 13px;
+            line-height: 1.8;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #1E2E20;
+        }
+
+        .section {
+            margin-bottom: 36px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid #1E2E20;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            color: #8FD9B6;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
+
+        .section-body {
+            color: #9BB8A0;
+            font-size: 15px;
+            line-height: 1.9;
+            word-wrap: break-word;
+        }
+
+        .section-body p {
+            margin-bottom: 14px;
+        }
+
+        .section-body ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .section-body ul li {
+            margin-bottom: 10px;
+            padding-left: 1.2em;
+            position: relative;
+        }
+
+        .section-body ul li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #8FD9B6;
+        }
+
+        .section-body strong {
+            color: #B0C8B5;
+            font-weight: 600;
+        }
+
+        .subsection-title {
+            color: #B0C8B5;
+            font-size: 15px;
+            font-weight: 600;
+            margin-top: 16px;
+            margin-bottom: 8px;
+        }
+
+        /* Footer */
+        .footer {
+            background: #080F0A;
+            padding: 32px 0;
+            text-align: center;
+            border-top: 1px solid #1E2E20;
+        }
+
+        .footer p {
+            color: #5A7A60;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 20px;
+            }
+
+            .brand-title {
+                font-size: 20px;
+            }
+
+            .section-title {
+                font-size: 18px;
+            }
+
+            .section-body {
+                font-size: 14px;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0D1A0F;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1E2E20;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #2A3E2E;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-inner">
+                <div class="back-arrow" onclick="history.back()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 6L9 12L15 18"/>
+                    </svg>
+                </div>
+                <span class="header-title">隐私政策</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="brand">
+        <div class="brand-icon">
+            <svg viewBox="0 0 64 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 32,75 C 13,68 9,52 9,40 C 9,28 13,12 32,4 C 44,22 20,58 32,75 Z" fill="#A2E899"/>
+                <path d="M 32,4 C 51,12 55,28 55,40 C 55,52 51,68 32,75 C 20,58 44,22 32,4 Z" fill="#2E7A32"/>
+            </svg>
+        </div>
+        <h1 class="brand-title">时间树洞</h1>
+        <p class="brand-subtitle">在森林深处，种下你的声音</p>
+    </div>
+
+    <main class="container">
+        <div class="content">
+            <div class="updated-date">
+                更新日期：2026年8月2日<br>
+                生效日期：2026年8月2日
+            </div>
+
+            <section class="section">
+                <h2 class="section-title">引言</h2>
+                <div class="section-body">
+                    <p>欢迎使用「时间树洞」（以下简称「我们」或「本应用」）。我们深知个人信息对您的重要性，并承诺严格遵守相关法律法规，采取相应的安全保护措施，尽力保护您的个人信息安全可控。本隐私政策旨在向您说明我们如何收集、使用、存储和保护您的个人信息。</p>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">一、我们收集的信息</h2>
+                <div class="section-body">
+                    <p class="subsection-title">1.1 设备信息</p>
+                    <p>当您使用时间树洞时，我们会自动收集您的设备标识符、设备型号、操作系统版本等基本信息。这些信息用于识别您的设备，以提供匿名账号服务。</p>
+
+                    <p class="subsection-title">1.2 音频内容（树洞消息）</p>
+                    <p>时间树洞的核心功能是录制和存储您的语音消息。您录制的音频内容将存储在您的设备本地和我们的服务器上，以便您随时回顾。</p>
+
+                    <p class="subsection-title">1.3 账号信息</p>
+                    <p>当您首次使用应用时，系统会自动为您创建匿名账号，包括系统随机生成的昵称和您选择的头像颜色。您也可以创建恢复码，用于在其他设备上恢复您的账号数据。</p>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">二、我们如何使用信息</h2>
+                <div class="section-body">
+                    <p>我们收集的信息仅用于以下目的：</p>
+                    <ul>
+                        <li>提供和维护时间树洞的核心功能（录制、存储、播放树洞消息）</li>
+                        <li>为您创建和管理匿名账号</li>
+                        <li>实现跨设备数据恢复（通过恢复码）</li>
+                        <li>改善和优化我们的服务体验</li>
+                        <li>保障服务的安全性和稳定性，防范安全风险</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">三、信息的存储与安全</h2>
+                <div class="section-body">
+                    <p>您的音频内容以加密方式存储在服务器上。我们采用行业标准的安全措施（包括数据加密、访问控制、安全审计等）保护您的个人信息，防止未经授权的访问、使用或泄露。</p>
+                    <p><strong>重要提示：</strong>您的恢复码是找回账号及数据的唯一凭证。恢复码一旦丢失，我们将无法帮您找回账号。请务必妥善保管您的恢复码。</p>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">四、您的权利</h2>
+                <div class="section-body">
+                    <p>根据相关法律法规，您对您的个人信息享有以下权利：</p>
+                    <ul>
+                        <li><strong>访问权：</strong>您可以随时在应用内查看您的账号信息和历史树洞记录。</li>
+                        <li><strong>更正权：</strong>您可以在「个人资料」页面修改您的昵称和头像颜色。</li>
+                        <li><strong>删除权：</strong>您可以在设置中删除您的账号及所有关联数据（包括树洞消息和音频文件）。删除操作不可撤销，请谨慎操作。</li>
+                        <li><strong>数据导出：</strong>您可以申请导出您的个人数据副本。</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">五、未成年人保护</h2>
+                <div class="section-body">
+                    <p>时间树洞主要面向成年人用户。我们不会在明知对方为未满14周岁未成年人的情况下收集其个人信息。</p>
+                    <p>如果您是未成年人的监护人或家长，发现未成年人未经您同意向我们提供了个人信息，请通过本政策所述联系方式与我们联系，我们将尽快删除相关数据。</p>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">六、隐私政策更新</h2>
+                <div class="section-body">
+                    <p>我们可能会不时更新本隐私政策。当政策发生变更时，我们会在应用内发布更新通知，并在变更生效前以适当方式提醒您。</p>
+                    <p>对于重大变更，我们还会通过更显著的方式（如弹窗通知）向您告知。我们建议您定期查阅本隐私政策，以了解我们最新的隐私保护措施。</p>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">七、联系我们</h2>
+                <div class="section-body">
+                    <p>如果您对本隐私政策有任何疑问、意见或建议，欢迎通过以下方式联系我们：</p>
+                    <ul>
+                        <li><strong>应用内反馈：</strong>在「个人资料」页面选择「帮助与反馈」</li>
+                        <li><strong>电子邮箱：</strong>privacy@timetreehole.com</li>
+                    </ul>
+                    <p>我们将在收到您的请求后15个工作日内予以回复。</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>时间树洞 &copy; 2026 版权所有<br>本隐私政策最后更新于 2026年8月2日</p>
+        </div>
+    </footer>
+</body>
+</html>

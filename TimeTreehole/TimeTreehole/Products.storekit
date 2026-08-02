@@ -1,0 +1,38 @@
+{
+  "identifier" : "C0A1B2C3",
+  "nonRenewingSubscriptions" : [],
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 2,
+    "minor" : 0
+  },
+  "consumableProducts" : [
+    {
+      "displayName" : "一袋灵叶",
+      "description" : "50 灵叶 — 5 次上传或 10 次获取",
+      "familyDisplayName" : "灵叶",
+      "productID" : "com.timetreehole.credits.small",
+      "referenceName" : "small_pack",
+      "price" : 6,
+      "region" : "CNY"
+    },
+    {
+      "displayName" : "一捧灵叶",
+      "description" : "120 灵叶 — 12 次上传或 24 次获取 · 最受欢迎",
+      "familyDisplayName" : "灵叶",
+      "productID" : "com.timetreehole.credits.medium",
+      "referenceName" : "medium_pack",
+      "price" : 12,
+      "region" : "CNY"
+    },
+    {
+      "displayName" : "一篮灵叶",
+      "description" : "300 灵叶 — 30 次上传或 60 次获取 · 超值装",
+      "familyDisplayName" : "灵叶",
+      "productID" : "com.timetreehole.credits.large",
+      "referenceName" : "large_pack",
+      "price" : 25,
+      "region" : "CNY"
+    }
+  ]
+}

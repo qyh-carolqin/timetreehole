@@ -1,0 +1,39 @@
+# ============================================================
+#  时间树洞 · Git 忽略规则
+# ============================================================
+
+# 依赖
+node_modules/
+.swiftpm/
+.build/
+DerivedData/
+
+# 敏感配置
+.env
+*.p8
+*.p12
+
+# 运行时数据
+backend/data/
+backend/uploads/
+!backend/uploads/.gitkeep
+!backend/uploads/demo/.gitkeep
+
+# SSL 证书
+backend/nginx/ssl/*
+!backend/nginx/ssl/.gitkeep
+
+# 系统文件
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.xcworkspace
+xcuserdata/
+*.xcuserstate
+
+# WorkBuddy
+.workbuddy/

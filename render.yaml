@@ -1,0 +1,36 @@
+# ============================================================
+#  时间树洞 · Render Blueprint 部署配置
+#  文档: https://render.com/docs/blueprint-spec
+# ============================================================
+
+services:
+  - type: web
+    name: timetreehole-api
+    runtime: docker
+    repo: https://github.com/YOUR_USERNAME/timetreehole.git
+    rootDir: backend
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Apple IAP 收据验证（上线前必须填入）
+      - key: APPLE_SHARED_SECRET
+        sync: false
+      - key: APPLE_IAP_ENV
+        value: sandbox
+      # Apple Push Notifications（上线前必须填入）
+      - key: APNS_KEY_ID
+        sync: false
+      - key: APNS_TEAM_ID
+        sync: false
+      - key: APNS_TOPIC
+        value: com.yourcompany.timetreehole
+      # 存储路径
+      - key: DB_PATH
+        value: /app/data/timetreehole.db
+      - key: UPLOADS_DIR
+        value: /app/uploads
+      - key: MAX_FILE_SIZE_MB
+        value: "20"

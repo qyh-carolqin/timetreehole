@@ -1,0 +1,48 @@
+name: TimeTreehole
+
+options:
+  bundleIdPrefix: com.yourcompany
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+  developmentLanguage: zh-Hans
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1"
+    INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+    INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+    INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+
+targets:
+  TimeTreehole:
+    type: application
+    platform: iOS
+    sources:
+      - path: TimeTreehole
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        INFOPLIST_FILE: TimeTreehole/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourcompany.timetreehole
+        CODE_SIGN_ENTITLEMENTS: TimeTreehole/TimeTreehole.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        DEVELOPMENT_TEAM: ""
+    dependencies: []
+    preBuildScripts: []
+    postBuildScripts: []
+
+schemes:
+  TimeTreehole:
+    build:
+      targets:
+        TimeTreehole: all
+    run:
+      config: Debug
+    archive:
+      config: Release
