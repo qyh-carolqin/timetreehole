@@ -1,12 +1,35 @@
+// 全局异常捕获 — 确保任何未捕获错误都能输出到 Railway 日志
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] 未捕获异常:', err.message);
+    console.error(err.stack);
+    process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+    console.error('[FATAL] 未处理的 Promise 拒绝:', reason);
+    process.exit(1);
+});
+
 const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
+
+// 数据库加载（带错误捕获以便诊断）
+let db, updateApnsToken;
+try {
+    const dbModule = require('./db');
+    db = dbModule.db;
+    updateApnsToken = dbModule.updateApnsToken;
+    console.log('[启动] 数据库模块加载成功');
+} catch (err) {
+    console.error('[FATAL] 数据库模块加载失败:', err.message);
+    console.error(err.stack);
+    process.exit(1);
+}
 
 const authMiddleware = require('./middleware/auth');
 const seedsRouter     = require('./routes/seeds');
 const treeholeRouter  = require('./routes/treehole');
 const notifRouter     = require('./routes/notifications');
-const { updateApnsToken } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;

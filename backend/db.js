@@ -3,19 +3,32 @@ const path = require('path');
 const fs = require('fs');
 
 // 确保数据目录存在
-const dataDir = path.join(__dirname, 'data');
-fs.mkdirSync(dataDir, { recursive: true });
+const dataDir = process.env.DB_DIR || path.join(__dirname, 'data');
+try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log(`[DB] 数据目录: ${dataDir}`);
+} catch (err) {
+    console.error('[FATAL] 无法创建数据目录:', err.message);
+    process.exit(1);
+}
 
 const DB_PATH = path.join(dataDir, 'timetreehole.db');
 
 // 单例连接
-const db = new Database(DB_PATH, {
-    // verbose: console.log
-});
+let db;
+try {
+    db = new Database(DB_PATH);
+    console.log(`[DB] SQLite 数据库已连接: ${DB_PATH}`);
+} catch (err) {
+    console.error('[FATAL] 无法打开数据库:', err.message);
+    console.error(err.stack);
+    process.exit(1);
+}
 
 // 开启 WAL 模式提升并发
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+console.log('[DB] WAL 模式已启用');
 
 // ============================================================
 // 表结构初始化
