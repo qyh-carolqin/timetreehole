@@ -127,14 +127,14 @@ app.use((err, req, res, next) => {
 // 启动
 // ============================================================
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('');
     console.log('  🌳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🌳');
     console.log('  │      时间树洞 · 后端服务 v1.0.0         │');
     console.log('  │      TimeTreehole API Server            │');
     console.log('  ├──────────────────────────────────────────┤');
-    console.log(`  │  地址: http://localhost:${PORT}              │`);
-    console.log(`  │  健康: http://localhost:${PORT}/api/health   │`);
+    console.log(`  │  地址: http://0.0.0.0:${PORT}                │`);
+    console.log(`  │  健康: http://0.0.0.0:${PORT}/api/health     │`);
     console.log('  │  认证: X-Device-Id (请求头)              │');
     console.log('  └──────────────────────────────────────────┘');
     console.log('');
@@ -167,4 +167,9 @@ app.listen(PORT, () => {
     console.log('     GET    /api/user/devices         设备列表');
     console.log('     DELETE /api/user/devices/:id     解绑设备');
     console.log('');
+});
+
+server.on('error', (err) => {
+    console.error('[Server] 启动失败:', err.message);
+    process.exit(1);
 });
