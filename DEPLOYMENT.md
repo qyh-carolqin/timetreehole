@@ -1,7 +1,7 @@
 # 时间树洞 · 部署文档
 
 > 最后更新: 2026-08-03
-> 架构: 后端 Koyeb 免费层 + iOS 构建 Codemagic 免费层
+> 架构: 后端 Railway 免费层 + iOS 构建 Codemagic 免费层
 > 总成本: $0/月 (仅 Apple Developer 年费 $99/年)
 > 无需信用卡、无需买域名、无需买服务器
 
@@ -10,7 +10,7 @@
 ## 目录
 
 1. [整体架构](#1-整体架构)
-2. [后端部署 — Koyeb 免费层 (推荐)](#2-后端部署--koyeb-免费层推荐)
+2. [后端部署 — Railway 免费层 (推荐)](#2-后端部署--railway-免费层推荐)
 3. [iOS 构建上架 — Codemagic 免费层](#3-ios-构建上架--codemagic-免费层)
 4. [Codemagic 免费方案已知缺点与应对](#4-codemagic-免费方案已知缺点与应对)
 5. [上线前检查清单](#5-上线前检查清单)
@@ -22,65 +22,62 @@
 ## 1. 整体架构
 
 ```
-后端: Koyeb (Docker + HTTPS + 免费域名, 不要信用卡)
+后端: Railway (Docker + HTTPS + 免��域名, 不要信用卡)
 iOS:  Codemagic (自动构建 + 签名 + 上传 TestFlight, 免费层)
 ```
 
-> **为什么不用 Render？** Render 创建 Web Service 需要信用卡认证，国内银行卡通过率仅 30-45%。Koyeb 同样支持 Docker 自动部署、自动 HTTPS、免费域名，**不需要信用卡**，功能几乎一致。
+> **为什么不用 Render/Koyeb？** Render 需要信用卡认证（国内卡通过率低），Koyeb 被 Mistral 收购后控制台不稳定。Railway 支持 Docker 自动部署、自动 HTTPS、免费域名，**不要信用卡**，对中国用户��好。
 
 **两条流水线，全部免费，不要信用卡**:
-- **后端**: git push → Koyeb 自动构建部署 → API 上线
+- **后端**: git push → Railway 自动构建部署 → API 上线
 - **iOS**: git push → Codemagic 构建 → TestFlight 安装测试
 
 ---
 
-## 2. 后端部署 — Koyeb 免费层（推荐）
+## 2. 后端部署 — Railway 免费层（推荐）
 
-> 操作: 浏览器登录 → 连 GitHub → 选 Docker → 部署 → 完成。全程不要信用卡。
+> 操作: 浏览器登录 → 连 GitHub → 选仓库 → 部署 → 完成。全程不��信用卡。
 
 ### 配置文件
 
 | 文件 | 作用 |
 |------|------|
-| `backend/Dockerfile` | Docker 多阶段构建 (Koyeb/Render 通用) |
+| `backend/Dockerfile` | Docker 多阶段构建 |
+| `backend/railway.json` | Railway 部署配置 (Dockerfile + Healthcheck) |
 | `backend/render-start.sh` | 启动脚本 (首次自动初始化演示数据) |
 
 ### 操作步骤
 
-**第 1 步：注册 Koyeb (不要信用卡)**
+**第 1 步: 注册 Railway (不要信用卡)**
 
-1. 浏览器打开 `https://app.koyeb.com/auth/signup`
-2. 点击 **Continue with GitHub** → 授权
-3. 进入控制台
+1. 浏览器打开 `https://railway.app`
+2. 点击 **Login → Continue with GitHub** → 授权
+3. 进入控制台 (**无需信用卡!**)
 
-**第 2 步：创建 Web Service**
+**第 2 步: 创建项目并部署**
 
-1. Koyeb 控制台 → **Create Service → Web Service**
-2. 选 **GitHub** → 选 `timetreehole` 仓库
-3. 配置:
+1. Railway 控制台 → 点击 **New Project**
+2. 选择 **Deploy from GitHub repo**
+3. 搜索并选择 `timetreehole` 仓库
+4. Railway 自动检�� Dockerfile
+   - (如未自动检测到, 在服务设置中手动设 Root Directory = `backend`)
+5. 点击 **Deploy Now**, 等待 3-5 分钟构建
 
-| 设置项 | 值 | 说明 |
-|--------|-----|------|
-| Type | **Dockerfile** | Koyeb 自动检测 |
-| Dockerfile root directory | `backend` | 指向 backend 子目录 |
-| Port | **3000** | Express 监听端口 |
-| Health check | `/api/health` | 自动健康检查 |
+**第 3 步: 生成域名**
 
-4. 点击 **Deploy**，等待 3-5 分钟
-
-**第 3 步：验证**
-
-构建完成后分配域名 `https://<名字>-<随机>.koyeb.app`：
+1. 部署完成后, 点击服务面板
+2. **Settings → Networking → Generate Domain**
+3. 获得域名: `https://xxxx.up.railway.app`
 
 ```bash
-# 浏览器打开
-https://你的域名.koyeb.app/api/health
+# 浏览器打开验证
+https://你的域名.up.railway.app/api/health
 # 预期: {"status":"ok","service":"时间树洞 · API",...}
 ```
 
-**第 4 步：配置环境变量**
+**第 4 步: 配置环境变量**
 
-Koyeb 控制台 → Service → Settings → Secrets:
+Railway 控制台 → 服务 → Variables:
 
 | 变量 | 值 | 说明 |
 |------|-----|------|
@@ -90,37 +87,38 @@ Koyeb 控制台 → Service → Settings → Secrets:
 | `APNS_KEY_ID` | 10位字符 | 暂时可跳过 |
 | `APNS_TEAM_ID` | 10位字符 | 暂时可跳过 |
 
-修改后点 Save → Redeploy。
+填完后 Railway 自动重新部署。
 
-**第 5 步：防休眠**
+**第 5 步: 防休眠**
 
-Koyeb 免费层会 scale-to-zero（休眠），用 UptimeRobot 保活：
+Railway 免费层不活跃项目会自动休眠, 用 UptimeRobot 保活:
 
 1. 注册 `https://uptimerobot.com`
-2. 添加 HTTP 监控: `https://你的域名.koyeb.app/api/health`
+2. 添加 HTTP 监控: `https://你的域名.up.railway.app/api/health`
 3. 间隔: **5 分钟**
 
-**第 6 步：更新 iOS 客户端**
+**第 6 步: 更新 iOS 客户端**
 
-编辑 `TimeTreehole/TimeTreehole/Services/APIConfig.swift`：
+编辑 `TimeTreehole/TimeTreehole/Services/APIConfig.swift`:
 
 ```swift
 #if RELEASE
-static let baseURL = "https://你的域名.koyeb.app"
+static let baseURL = "https://你的域名.up.railway.app"
 #endif
 ```
 
-### Koyeb 免费层 vs Render 免费层
+### Railway vs Render vs Koyeb
 
-| 对比 | Koyeb | Render |
-|------|-------|--------|
-| 信用卡 | ✅ 不需要 | ❌ 需要 |
-| Docker 部署 | ✅ | ✅ |
-| HTTPS | ✅ 自动 | ✅ 自动 |
-| 免费域名 | ✅ `*.koyeb.app` | ✅ `*.onrender.com` |
-| Git 自动部署 | ✅ | ✅ |
-| 休眠 | scale-to-zero | 15分钟 |
-| 存储 | 临时 | 临时 |
+| 对比 | Railway | Koyeb | Render |
+|------|---------|-------|--------|
+| 信用卡 | ✅ 不需要 | ✅ 不需要 | ❌ 需要 |
+| Docker 部署 | ✅ | ✅ | ✅ |
+| HTTPS | ✅ 自动 | ✅ 自动 | ✅ 自动 |
+| 免费域名 | ✅ *.railway.app | ✅ *.koyeb.app | ✅ *.onrender.com |
+| Git 自动部署 | ✅ | ✅ | ✅ |
+| 休眠 | 有 | scale-to-zero | 15分钟 |
+| 存储 | 临时 | 临时 | 临时 |
+| 中国用户 | ✅ 友好 | ⚠️ 不稳定 | ❌ 需信用��� |
 
 ---
 
@@ -204,7 +202,7 @@ xcodebuild archive             ← 编译 + 归档
 
 - iPhone 安装 TestFlight App
 - App Store Connect → TestFlight → 添加测试员 (你的邮箱)
-- 收到邮件 → 点击安装 → 在手机上测试
+- 收到邮件 → 点击安装 → 在手机���测试
 
 ### Codemagic 免费层配额
 
@@ -235,7 +233,7 @@ xcodebuild archive             ← 编译 + 归档
 - 不能查看视图层级 (Debug View Hierarchy)
 - 出 bug 只能靠 `print()` + CI 日志排查
 
-**应对**: 代码里多加 `print()` 日志, 复杂逻辑提前在本地用 Swift Playground 验证。
+**���对**: 代码里多加 `print()` 日志, 复杂逻辑提前在本地用 Swift Playground 验证。
 
 ### 4.3 免费额度有限
 
@@ -262,13 +260,13 @@ xcodebuild archive             ← 编译 + 归档
 - 新版本首个构建可能需要 TestFlight Beta 审核 (几小时到 1 天)
 - 这段时间内什么都做不了
 
-**应对**: 新版本提前构建上传, 不要卡在截止时间。
+**���对**: 新版本提前构建上传, 不要卡在截止时间。
 
 ### 4.6 签名出错难排查
 
 - Codemagic 自动管理证书通常没问题
 - 但如果签名失败 (Team ID 填错, Bundle ID 冲突), CI 日志报错往往很长
-- 没有 Xcode 可视化签名面板, 排错全靠读日志
+- 没有 Xcode 可视��签名面板, 排错全靠读日志
 
 **应对**: 确保 `project.yml` 的 Bundle ID 和 Team ID 正确, API Key 权限为 App Manager 以上。
 
@@ -289,14 +287,14 @@ xcodebuild archive             ← 编译 + 归档
 ### 后端
 
 - [ ] 代码已 push 到 GitHub (https://github.com/qyh-carolqin/timetreehole)
-- [ ] Koyeb 服务已创建, Docker 构建成功
-- [ ] 访问 `https://<你的域名>.koyeb.app/api/health` 返回 ok
-- [ ] 访问 `https://<你的域名>.koyeb.app/api/treehole/stats` 有数据
-- [ ] Koyeb Secrets 已配置 `APPLE_SHARED_SECRET`
-- [ ] Koyeb Secrets 已配置 `APNS_KEY_ID`, `APNS_TEAM_ID`
+- [ ] Railway 项目已创建, Docker 构建成功
+- [ ] Railway 域名已生成, 访问 `/api/health` 返回 ok
+- [ ] 访问 `/api/treehole/stats` 有数据
+- [ ] Railway Variables 已配置 `APPLE_SHARED_SECRET`
+- [ ] Railway Variables 已配置 `APNS_KEY_ID`, `APNS_TEAM_ID`
 - [ ] `APPLE_IAP_ENV` 设为 `sandbox` (上线后改 `production`)
 - [ ] UptimeRobot 已配置 5 分钟 ping 防休眠
-- [ ] iOS 客户端 `APIConfig.swift` baseURL 与 Koyeb 域名一致
+- [ ] iOS 客户端 `APIConfig.swift` baseURL 与 Railway 域名一致
 
 ### iOS
 
@@ -321,13 +319,13 @@ xcodebuild archive             ← 编译 + 归档
 
 ## 6. 上线后日常运维
 
-### 后端运维 (接近零)
+### 后端运维 (接近���)
 
 | 任务 | 频率 | 操作 |
 |------|------|------|
 | 检查服务是否在线 | 每天 | UptimeRobot 自动告警 |
-| 更新后端代码 | 按需 | git push, Koyeb 自动部署 |
-| 查看日志 | 按需 | Koyeb Dashboard → Logs |
+| 更新后端代码 | 按需 | git push, Railway 自动部署 |
+| 查看日志 | 按需 | Railway Dashboard → Logs |
 | 检查构建状态 | 按需 | Codemagic Dashboard → Builds |
 | 检查配额 | 每月 | Codemagic Dashboard → Billing |
 
@@ -346,10 +344,10 @@ xcodebuild archive             ← 编译 + 归档
 
 | 场景 | 触发条件 | 解决方案 | 费用 |
 |------|----------|----------|------|
-| 数据不能丢 | 有真实用户 | Koyeb 加持久卷或迁移 VPS | $0-20/月 |
-| 流量超限 | 用户量增长 | 升级 Koyeb 实例 | 按量付费 |
-| 冷启动慢 | 忍不了 scale-to-zero | Koyeb 付费实例不缩容 | 按量付费 |
-| 自定义域名 | 想要品牌域名 | 买域名 + 绑定 Koyeb | ¥50/年 |
+| 数据不能丢 | 有真实用户 | Railway 加持久卷或迁移 VPS | $0-20/月 |
+| 流量超限 | 用户量增长 | 升级 Railway 实例 | 按量付费 |
+| 冷启动慢 | 忍不了休眠 | Railway Pro 实例不缩容 | $5-20/月 |
+| 自定义域名 | 想要品牌域名 | 买域名 + 绑定 Railway | ¥50/年 |
 | Codemagic 不够 | 月构建 > 50 次 | 升级付费或租云 Mac | $200/月或$1-2/小时 |
 
 **建议**: 现在先用免费层上线, 等有真实用户和收入了再升级。一个内购收入 (¥6) 就够覆盖一个月的升级费用。
@@ -370,15 +368,17 @@ xcodebuild archive             ← 编译 + 归档
 - 平台: MacinCloud, MacStadium, Flow
 - 适合: 需要 Xcode 图形界面操作 (UI 微调, 交互调试)
 - 优点: 跟用 Mac 一样, 模拟器 + 断点调试全都有
-- 缺点: 按小时收费, 开发期成本可能累积
+- 缺点: 按小时收费, 开发期成本可��累积
 - 建议: 开发期按需租, 发布后用 Codemagic
 
-### 备选 C: VPS 自建 ($5-20/月)
+### 备选 C: Render ($0/月, 需信用卡)
 
 - 配置文件: `render.yaml`
 - 适合: 有 Visa/Mastercard 国际信用卡
-- 与 Koyeb 功能几乎一致，自动 Docker 部署 + HTTPS
+- 与 Railway 功能几乎一致, 自动 Docker 部署 + HTTPS
 - 操作: `bash deploy.sh cloud` 查看指南
+
+### 备选 D: VPS 自建 ($5-20/月)
 
 - 配置文件: `docker-compose.prod.yml`, `nginx/`, `setup-ssl.sh`
 - 适合: 用户量大了, 需要持久存储和稳定服务
@@ -391,7 +391,8 @@ xcodebuild archive             ← 编译 + 归档
 
 | 文件 | 用途 | 部署时需要修改 |
 |------|------|----------------|
-| `backend/Dockerfile` | Docker 构建 (Koyeb/Render 通用) | ❌ 无需改 |
+| `backend/Dockerfile` | Docker 构建 (通用) | ❌ 无需改 |
+| `backend/railway.json` | Railway 部署配置 | ❌ 无需改 |
 | `backend/render-start.sh` | 启动脚本 | ❌ 无需改 |
 | `backend/.env.example` | 环境变量模板 | ❌ 参考, 在网页填 |
 | `render.yaml` | Render 备选配置 | ✅ 第 9 行 repo 地址 |

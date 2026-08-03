@@ -7,7 +7,8 @@
 #    docker      — 本地 Docker 部署 (API only, 端口 3000)
 #    prod        — 生产环境 Docker Compose (API + Nginx + SSL)
 #    local       — 本地 Node.js 开发运行
-#    cloud       — 云平台部署指南 (Railway / Render)
+#    railway     — 云平台部署指南 (Railway, 推荐, 不要信用卡)
+#    cloud       — 云平台部署指南 (Render, 需信用卡)
 #    vps         — 自建 VPS 部署指南 (阿里云 / 腾讯云)
 # ============================================================
 
@@ -42,7 +43,7 @@ deploy_docker() {
     if [ ! -f ".env" ]; then
         echo "📝 未找到 .env 文件，从 .env.example 创建..."
         cp .env.example .env
-        echo "⚠��  请编辑 .env 填入实际配置后重新运行"
+        echo "⚠️  请编辑 .env 填入实际配置后重新运行"
         exit 1
     fi
 
@@ -188,7 +189,7 @@ deploy_vps() {
 # 本地开发
 # ============================================================
 deploy_local() {
-    echo "📦 本地开发运行..."
+    echo "📦 本地开���运行..."
     cd "$PROJECT_DIR"
     if [ ! -d "node_modules" ]; then
         npm install
@@ -202,141 +203,79 @@ deploy_local() {
 }
 
 # ============================================================
-# 云平台：Render 免费部署（推荐）
+# 云平台：Railway 免费部署（推荐，不要信用卡！��
 # ============================================================
-deploy_cloud() {
+deploy_railway() {
     echo ""
-    echo "  ☁️  Render 免费部署 — 零成本、零运维"
+    echo "  🚂  Railway 免费部署 — 不要信用卡、自动 HTTPS、零运维"
     echo ""
     echo "  📋 前置条件："
-    echo "     - GitHub 仓库（把项目 push 上去）"
-    echo "     - Render 账号（https://render.com 用 GitHub 登录）"
+    echo "     - GitHub 仓库（代码在 https://github.com/qyh-carolqin/timetreehole）"
+    echo "     - Railway 账号（https://railway.app 用 GitHub 登���）"
     echo ""
-    echo "  🔧 操作步骤（5 分钟）："
+    echo "  🔧 操作步骤（3 分钟）："
     echo ""
-    echo "  ┌─ 第 1 步：Push 到 GitHub ─────────────────────┐"
-    echo "  │  cd D:/时间树洞APP                           │"
-    echo "  │  git init                                     │"
-    echo "  │  git add .                                    │"
-    echo "  │  git commit -m '🚀 初始提交 - 时间树洞'        │"
-    echo "  │  git remote add origin <你的仓库地址>          │"
-    echo "  │  git push -u origin main                      │"
+    echo "  ┌─ 第 1 步：注册 Railway ──────────────────────┐"
+    echo "  │  ① 浏览器打开 https://railway.app             │"
+    echo "  │  ② 点击 Login → Continue with GitHub           │"
+    echo "  │  ③ 授权后进入控制台                            │"
+    echo "  │  💡 无需信用卡！                               │"
     echo "  └──────────────────────────────────────────────┘"
     echo ""
-    echo "  ┌─ 第 2 步：修改 render.yaml ───────────────────┐"
-    echo "  │  编辑项目根目录的 render.yaml                  │"
-    echo "  │  把 YOUR_USERNAME 改成你的 GitHub 用户名       │"
-    echo "  │  repo: https://github.com/<你的用户名>/仓库名   │"
+    echo "  ┌─ 第 2 步：创建项目并部署 ────────────────────┐"
+    echo "  │  ① 控制台点击 New Project                      │"
+    echo "  │  ② 选择 Deploy from GitHub repo                │"
+    echo "  │  ③ 搜索并选择 timetreehole 仓库                │"
+    echo "  │  ④ Railway 自动检测 Dockerfile                 │"
+    echo "  │     (如未检测到, 手动设 Root Directory=backend) │"
+    echo "  │  ⑤ 点击 Deploy Now                             │"
+    echo "  │  ⑥ 等待 3-5 分钟构建完成                       │"
     echo "  └──────────────────────────────────────────────┘"
     echo ""
-    echo "  ┌─ 第 3 步：Render 控制台操作 ─────────────────┐"
-    echo "  │  ① 登录 https://dashboard.render.com          │"
-    echo "  │  ② 点击 New → Blueprint                       │"
-    echo "  │  ③ 连接 GitHub 仓库，选择 render.yaml          │"
-    echo "  │  ④ Render 自动创建 Web Service：               │"
-    echo "  │     - 检测 Dockerfile，自动构建镜像             │"
-    echo "  │     - 分配免费域名 *.onrender.com              │"
-    echo "  │     - 自动配置 HTTPS 证书                      │"
-    echo "  │     - 健康检查 /api/health                     │"
-    echo "  │     - 首次启动自动初始化演示数据                │"
+    echo "  ┌─ 第 3 步：生成域名 ──────────────────────────┐"
+    echo "  │  ① 部署完成后, 点击服务面板                    │"
+    echo "  │  ② Settings → Networking → Generate Domain     │"
+    echo "  │  ③ 获得域名: https://xxxx.railway.app          │"
+    echo "  │  ④ 浏览器验证: https://<域名>/api/health       │"
     echo "  └──────────────────────────────────────────────┘"
     echo ""
     echo "  ┌─ 第 4 步：配置环境变量 ──────────────────────┐"
-    echo "  │  在 Render Dashboard → Environment 设置:       │"
-    echo "  │  APPLE_SHARED_SECRET = <从 App Store Connect>  │"
-    echo "  │  APNS_KEY_ID        = <从 Apple Developer>     │"
-    echo "  │  APNS_TEAM_ID       = <从 Apple Developer>     │"
-    echo "  │  (IAP/推送上线前必须填入)                      │"
+    echo "  │  在 Railway 控制台 → 服务 → Variables:         │"
+    echo "  │  NODE_ENV                  = production        │"
+    echo "  │  APPLE_SHARED_SECRET       = <App Store 共享密钥>│"
+    echo "  │  APPLE_IAP_ENV             = sandbox            │"
+    echo "  │  APNS_KEY_ID               = <Apple Developer Key ID>│"
+    echo "  │  APNS_TEAM_ID              = <10位TeamID>      │"
+    echo "  │  APNS_TOPIC                = com.yourcompany.timetreehole│"
+    echo "  │  (APNS/IAP 密钥上线前必须填入)                 │"
     echo "  └──────────────────────────────────────────────┘"
     echo ""
     echo "  ┌─ 第 5 步：更新 iOS 客户端 ───────────────────┐"
     echo "  │  编辑 TimeTreehole/Services/APIConfig.swift    │"
-    echo "  │  把 baseURL 改成 Render 分配的域名             │"
+    echo "  │  把 baseURL 改成 Railway 分配的域名            │"
     echo "  │  static let baseURL =                          │"
-    echo "  │    \"https://timetreehole-api.onrender.com\"     │"
+    echo "  │    \"https://你的域名.up.railway.app\"           │"
     echo "  └──────────────────────────────────────────────┘"
     echo ""
-    echo "  ⚠️  免费层限制（可接受）："
-    echo "     - 15 分钟无请求后休眠，下次请求冷启动 ~30秒"
-    echo "     - 磁盘是临时的（每次部署重新初始化 DB）"
-    echo "     - 750 小时/月（刚好 24/7 运行）"
-    echo "     - 月流量 100 GB（够用）"
-    echo ""
-    echo "  💡 解决休眠问题："
-    echo "     用 uptimerobot.com 设一个免费监控，"
-    echo "     每 5 分钟 ping 一次 /api/health，保持不休眠"
-    echo ""
-    echo "  📦 其他云平台："
-    echo "     Railway: https://railway.app  ($5/月免费额度)"
-    echo "     Fly.io:  fly launch --dockerfile Dockerfile"
-    echo ""
-}
-
-# ============================================================
-# 云平台：Koyeb 免费部署（推荐，不要信用卡）
-# ============================================================
-deploy_koyeb() {
-    echo ""
-    echo "  ☁️  Koyeb 免费部署 — 零成本、不要信用卡、自动 HTTPS"
-    echo ""
-    echo "  📋 前置条件："
-    echo "     - GitHub 仓库（代码已 push 到 https://github.com/qyh-carolqin/timetreehole）"
-    echo "     - Koyeb 账号（https://koyeb.com 用 GitHub 登录，不要信用卡）"
-    echo ""
-    echo "  🔧 操作步骤（3 分钟）："
-    echo ""
-    echo "  ┌─ 第 1 步：注册 Koyeb ─────────────────────────┐"
-    echo "  │  ① 浏览器打开 https://app.koyeb.com/auth/signup │"
-    echo "  │  ② 点击 Continue with GitHub                  │"
-    echo "  │  ③ 授权后进入控制台 (不要信用卡!)             │"
-    echo "  └──────────────────────────────────────────────┘"
-    echo ""
-    echo "  ┌─ 第 2 步：创建服务 ──────────────────────────┐"
-    echo "  │  ① 控制台点 Create Service → Web Service       │"
-    echo "  │  ② 选 GitHub → 选 timetreehole 仓库            │"
-    echo "  │  ③ Settings:                                   │"
-    echo "  │     - Type: Dockerfile                         │"
-    echo "  │     - Dockerfile root directory: backend       │"
-    echo "  │     - Port: 3000                               │"
-    echo "  │     - Health check: /api/health                │"
-    echo "  │  ④ 点 Deploy (首次构建 3-5 分钟)              │"
-    echo "  └──────────────────────────────────────────────┘"
-    echo ""
-    echo "  ┌─ 第 3 步：配置环境变量 ──────────────────────┐"
-    echo "  │  在 Koyeb 控制台 → Settings → Secrets:         │"
-    echo "  │  NODE_ENV                  = production        │"
-    echo "  │  APPLE_SHARED_SECRET       = <App Store 共享密钥>│"
-    echo "  │  APPLE_IAP_ENV             = sandbox            │"
-    echo "  │  APNS_KEY_ID              = <Apple Developer Key ID>│"
-    echo "  │  APNS_TEAM_ID             = <10位TeamID>       │"
-    echo "  │  APNS_TOPIC               = com.yourcompany.timetreehole│"
-    echo "  │  (APNS/IAP 密钥暂时可不填)                    │"
-    echo "  └──────────────────────────────────────────────┘"
-    echo ""
-    echo "  ┌─ 第 4 步：更新 iOS 客户端 ───────────────────┐"
-    echo "  │  编辑 TimeTreehole/Services/APIConfig.swift    │"
-    echo "  │  把 baseURL 改成 Koyeb 分配的域名             │"
-    echo "  │  static let baseURL =                          │"
-    echo "  │    \"https://timetreehole-api.koyeb.app\"        │"
-    echo "  └──────────────────────────────────────────────┘"
-    echo ""
-    echo "  ┌─ 第 5 步：防休眠 ────────────────────────────┐"
+    echo "  ┌─ 第 6 步：防休眠 ────────────────────────────┐"
     echo "  │  注册 https://uptimerobot.com                  │"
-    echo "  │  添加 HTTP 监控: https://<你的域名>.koyeb.app/api/health│"
+    echo "  │  添加 HTTP 监控: https://<域名>/api/health      │"
     echo "  │  间隔: 5 分钟                                 │"
     echo "  └──────────────────────────────────────────────┘"
     echo ""
-    echo "  ✅ Koyeb 免费层优势："
-    echo "     - 不要信用卡！GitHub 直接登录"
+    echo "  ✅ Railway 免费层优势："
+    echo "     - 不要信用卡！GitHub 直接登录注册"
     echo "     - 自动 HTTPS (Let's Encrypt)"
-    echo "     - 免费域名 *.koyeb.app"
-    echo "     - Scale-to-Zero (休眠后可自动唤醒)"
-    echo "     - 自动从 GitHub 构建部署"
+    echo "     - 免费域名 *.railway.app"
+    echo "     - 自动从 GitHub 构建 + 持续部署"
+    echo "     - $5/月免费额度 (小 App 用不完)"
+    echo "     - 支持 Dockerfile + Nixpacks 双构建方式"
+    echo "     - 中国用户可以正常注册使用"
     echo ""
     echo "  ⚠️  免费层限制："
-    echo "     - 休眠后冷启动 10-30 秒 (用 UptimeRobot 防休眠)"
-    echo "     - 磁盘临时存储 (每次新部署重置，首次启动自动种子数据)"
-    echo "     - 共享资源 (小规模 App 够用)"
+    echo "     - $5/月信用额度 (流量+CPU, 小 App 够用)"
+    echo "     - 不活跃项目自动休眠"
+    echo "     - 磁盘临时存储 (部署间数据不持久)"
     echo ""
     echo "  📖 完整部署文档: DEPLOYMENT.md"
     echo ""
@@ -374,7 +313,7 @@ deploy_codemagic() {
     echo "  │  ① 访问 codemagic.io, 用 GitHub 登录          │"
     echo "  │  ② Add Application → 选 GitHub 仓库           │"
     echo "  │  ③ 免费层: 500 分钟/月, Mac mini M1          │"
-    echo "  └──────────────────────────────────────────────┘"
+    echo "  └───���──────────────────────────────────────────┘"
     echo ""
     echo "  ┌─ 第 4 步：配置变量组 appstore_credentials ────┐"
     echo "  │  App settings → Environment variables:        │"
@@ -391,7 +330,7 @@ deploy_codemagic() {
     echo "  │  Codemagic 自动完成:                          │"
     echo "  │    XcodeGen 安装 → 生成工程 → 编译归档         │"
     echo "  │    → 自动签名 → 上传 TestFlight                │"
-    echo "  └──────────────────────────────────────────────┘"
+    echo "  └───���──────────────────────────────────────────┘"
     echo ""
     echo "  ┌─ 第 6 步：TestFlight 测试 ───────────────────┐"
     echo "  │  ① iPhone 安装 TestFlight App                 │"
@@ -425,11 +364,16 @@ case "$PLATFORM" in
     vps|server)
         deploy_vps
         ;;
-    cloud|railway|render|fly)
-        deploy_cloud
+    railway)
+        deploy_railway
         ;;
-    koyeb)
-        deploy_koyeb
+    cloud|render|fly|koyeb)
+        echo ""
+        echo "  ⚠️  该平台需要信用卡认证（国内银行卡通过率低），不推荐。"
+        echo ""
+        echo "  🚂  推荐使用 Railway（不要信用卡！）："
+        echo "     bash deploy.sh railway"
+        echo ""
         ;;
     codemagic|ios)
         deploy_codemagic
@@ -442,8 +386,7 @@ case "$PLATFORM" in
         echo "    prod       — 生产环境 (API + Nginx + SSL)"
         echo "    local      — 本地 Node.js 开发"
         echo "    vps        — VPS 自建服务器指南"
-        echo "    koyeb      — 云平台部署 (Koyeb, 推荐, 不要信用卡)"
-        echo "    cloud      — 云平台部署 (Render, 需信用卡)"
+        echo "    railway    — 云平台部署 (Railway, 推荐, 不要信用卡)"
         echo "    codemagic  — iOS 构建上架 (Codemagic 免费层)"
         echo ""
         echo "  📖 完整部署文档: DEPLOYMENT.md"
