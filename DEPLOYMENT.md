@@ -42,8 +42,8 @@ iOS:  Codemagic (自动构建 + 签名 + 上传 TestFlight, 免费层)
 
 | 文件 | 作用 |
 |------|------|
+| `railway.json` | Railway 部署配置 (必须放在项目根目录) |
 | `backend/Dockerfile` | Docker 多阶段构建 |
-| `backend/railway.json` | Railway 部署配置 (Dockerfile + Healthcheck) |
 | `backend/render-start.sh` | 启动脚本 (首次自动初始化演示数据) |
 
 ### 操作步骤
@@ -59,9 +59,12 @@ iOS:  Codemagic (自动构建 + 签名 + 上传 TestFlight, 免费层)
 1. Railway 控制台 → 点击 **New Project**
 2. 选择 **Deploy from GitHub repo**
 3. 搜索并选择 `timetreehole` 仓库
-4. Railway 自动检�� Dockerfile
-   - (如未自动检测到, 在服务设置中手动设 Root Directory = `backend`)
+4. 等待 Railway 读取项目根目录的 `railway.json`
+   - 系统会自动使用 `Dockerfile` builder
+   - 构建根目录会自动设为 `backend`
 5. 点击 **Deploy Now**, 等待 3-5 分钟构建
+
+> **如果遇到 "Railpack could not determine how to build"**: 删除现有服务, 重新部署即可。Railway 首次可能没读到 `railway.json`。
 
 **第 3 步: 生成域名**
 

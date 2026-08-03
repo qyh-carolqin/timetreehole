@@ -41,7 +41,7 @@ RUN mkdir -p /app/data /app/uploads
 
 # 健康检查（兼容 Render 的 PORT 环境变量）
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD-SHELL wget -qO- http://localhost:${PORT:-3000}/api/health || exit 1
+    CMD wget -qO- http://localhost:${PORT:-3000}/api/health || exit 1
 
 EXPOSE 3000
 
