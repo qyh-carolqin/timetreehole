@@ -7,7 +7,7 @@ services:
   - type: web
     name: timetreehole-api
     runtime: docker
-    repo: https://github.com/YOUR_USERNAME/timetreehole.git
+    repo: https://github.com/qyh-carolqin/timetreehole.git
     rootDir: backend
     plan: free
     healthCheckPath: /api/health
