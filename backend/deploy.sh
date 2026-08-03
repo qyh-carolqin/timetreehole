@@ -273,6 +273,73 @@ deploy_cloud() {
 }
 
 # ============================================================
+# iOS 构建上架 — Codemagic 免费层 (推荐, 无需 Mac)
+# ============================================================
+deploy_codemagic() {
+    echo ""
+    echo "  📱 Codemagic 免费构建 — 无需 Mac 自动上架"
+    echo ""
+    echo "  📋 前置条件："
+    echo "     - Apple Developer 账号 (\$99/年, 唯一硬支出)"
+    echo "     - App Store Connect API Key (.p8 文件)"
+    echo "     - GitHub 仓库已推送代码"
+    echo ""
+    echo "  🔧 操作步骤："
+    echo ""
+    echo "  ┌─ 第 1 步：创建 App Store Connect API Key ─────┐"
+    echo "  │  ① appstoreconnect.apple.com                  │"
+    echo "  │  ② 用户和访问 → 密钥 → 生成                   │"
+    echo "  │  ③ 权限选 App Manager                         │"
+    echo "  │  ④ 下载 .p8 文件 (只能下载一次!)             │"
+    echo "  │  ⑤ 记录 Issuer ID, Key ID, Team ID            │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ┌─ 第 2 步：填入 Team ID ──────────────────────┐"
+    echo "  │  编辑 TimeTreehole/project.yml                │"
+    echo "  │  DEVELOPMENT_TEAM: \"你的10位TeamID\"           │"
+    echo "  │  Team ID 在 developer.apple.com → Membership  │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ┌─ 第 3 步：注册 Codemagic ────────────────────┐"
+    echo "  │  ① 访问 codemagic.io, 用 GitHub 登录          │"
+    echo "  │  ② Add Application → 选 GitHub 仓库           │"
+    echo "  │  ③ 免费层: 500 分钟/月, Mac mini M1          │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ┌─ 第 4 步：配置变量组 appstore_credentials ────┐"
+    echo "  │  App settings → Environment variables:        │"
+    echo "  │  APP_STORE_CONNECT_ISSUER_ID   = <Issuer ID>   │"
+    echo "  │  APP_STORE_CONNECT_KEY         = <.p8 内容>   │"
+    echo "  │  APP_STORE_CONNECT_KEY_IDENTIFIER = <Key ID>  │"
+    echo "  │  DEVELOPMENT_TEAM_ID           = <Team ID>    │"
+    echo "  │  每个变量勾选 Secure (加密)                   │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ┌─ 第 5 步：启动构建 ──────────────────────────┐"
+    echo "  │  Start build (或 git push 到 main 自动触发)   │"
+    echo "  │  等待 10-15 分钟                              │"
+    echo "  │  Codemagic 自动完成:                          │"
+    echo "  │    XcodeGen 安装 → 生成工程 → 编译归档         │"
+    echo "  │    → 自动签名 → 上传 TestFlight                │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ┌─ 第 6 步：TestFlight 测试 ───────────────────┐"
+    echo "  │  ① iPhone 安装 TestFlight App                 │"
+    echo "  │  ② App Store Connect → TestFlight → 加测试员  │"
+    echo "  │  ③ 收到邮件 → 点击安装 → 真机测试              │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ⚠️  免费层限制（详见 DEPLOYMENT.md 第 4 节）："
+    echo "     - 500 分钟/月, 约 30-50 次构建"
+    echo "     - 不能交互调试 (无断点/模拟器)"
+    echo "     - TestFlight 处理延迟 5-15 分钟"
+    echo "     - 签名出错只能看 CI 日志排查"
+    echo ""
+    echo "  💡 完整部署文档: DEPLOYMENT.md (项目根目录)"
+    echo ""
+}
+
+# ============================================================
 # 入口
 # ============================================================
 case "$PLATFORM" in
@@ -291,15 +358,21 @@ case "$PLATFORM" in
     cloud|railway|render|fly)
         deploy_cloud
         ;;
+    codemagic|ios)
+        deploy_codemagic
+        ;;
     *)
         echo "用法: bash deploy.sh [平台]"
         echo ""
         echo "  平台:"
-        echo "    docker  — 本地 Docker 测试部署"
-        echo "    prod    — 生产环境 (API + Nginx + SSL)"
-        echo "    local   — 本地 Node.js 开发"
-        echo "    vps     — VPS 自建服务器指南"
-        echo "    cloud   — 云平台部署指南"
+        echo "    docker     — 本地 Docker 测试部署"
+        echo "    prod       — 生产环境 (API + Nginx + SSL)"
+        echo "    local      — 本地 Node.js 开发"
+        echo "    vps        — VPS 自建服务器指南"
+        echo "    cloud      — 云平台部署指南 (Render)"
+        echo "    codemagic  — iOS 构建上架 (Codemagic 免费层)"
+        echo ""
+        echo "  📖 完整部署文档: DEPLOYMENT.md"
         echo ""
         ;;
 esac
