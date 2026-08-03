@@ -1,15 +1,16 @@
 # 时间树洞 · 部署文档
 
 > 最后更新: 2026-08-03
-> 架构: 后端 Render 免费层 + iOS 构建 Codemagic 免费层
+> 架构: 后端 Koyeb 免费层 + iOS 构建 Codemagic 免费层
 > 总成本: $0/月 (仅 Apple Developer 年费 $99/年)
+> 无需信用卡、无需买域名、无需买服务器
 
 ---
 
 ## 目录
 
 1. [整体架构](#1-整体架构)
-2. [后端部署 — Render 免费层](#2-后端部署--render-免费层)
+2. [后端部署 — Koyeb 免费层 (推荐)](#2-后端部署--koyeb-免费层推荐)
 3. [iOS 构建上架 — Codemagic 免费层](#3-ios-构建上架--codemagic-免费层)
 4. [Codemagic 免费方案已知缺点与应对](#4-codemagic-免费方案已知缺点与应对)
 5. [上线前检查清单](#5-上线前检查清单)
@@ -21,100 +22,105 @@
 ## 1. 整体架构
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                     用户 iPhone                      │
-│              (TestFlight / App Store)                │
-└──────────────────────┬──────────────────────────────┘
-                       │ HTTPS
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│              Render 免费层 (后端 API)                 │
-│  https://timetreehole-api.onrender.com              │
-│  ┌─────────────────────────────────────────────┐     │
-│  │  Node.js + Express + SQLite                 │     │
-│  │  Docker 容器, 自动 HTTPS, 自动重启          │     │
-│  └─────────────────────────────────────────────┘     │
-└──────────────────────┬──────────────────────────────┘
-                       │ git push
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│                 GitHub 仓库 (代码)                    │
-│  ┌──────────┐        ┌──────────────────────────┐   │
-│  │ main 分支 │───────▶│  Render (自动部署后端)   │   │
-│  │          │        └──────────────────────────┘   │
-│  │          │        ┌──────────────────────────┐   │
-│  │          │───────▶│  Codemagic (构建上传 iOS) │   │
-│  └──────────┘        └──────────────────────────┘   │
-└─────────────────────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│  Codemagic Mac mini M1 (免费层, 500 分钟/月)         │
-│  自动: 安装 XcodeGen → 生成工程 → 编译 → 签名        │
-│  → 归档 → 上传 TestFlight                            │
-└─────────────────────────────────────────────────────┘
+后端: Koyeb (Docker + HTTPS + 免费域名, 不要信用卡)
+iOS:  Codemagic (自动构建 + 签名 + 上传 TestFlight, 免费层)
 ```
 
-**两条流水线，全部免费**:
-- **后端**: git push → Render 自动构建部署 → API 上线
+> **为什么不用 Render？** Render 创建 Web Service 需要信用卡认证，国内银行卡通过率仅 30-45%。Koyeb 同样支持 Docker 自动部署、自动 HTTPS、免费域名，**不需要信用卡**，功能几乎一致。
+
+**两条流水线，全部免费，不要信用卡**:
+- **后端**: git push → Koyeb 自动构建部署 → API 上线
 - **iOS**: git push → Codemagic 构建 → TestFlight 安装测试
 
 ---
 
-## 2. 后端部署 — Render 免费层
+## 2. 后端部署 — Koyeb 免费层（推荐）
+
+> 操作: 浏览器登录 → 连 GitHub → 选 Docker → 部署 → 完成。全程不要信用卡。
 
 ### 配置文件
 
 | 文件 | 作用 |
 |------|------|
-| `render.yaml` | Render Blueprint 配置 (基础设施即代码) |
-| `backend/Dockerfile` | Docker 多阶段构建 |
+| `backend/Dockerfile` | Docker 多阶段构建 (Koyeb/Render 通用) |
 | `backend/render-start.sh` | 启动脚本 (首次自动初始化演示数据) |
 
 ### 操作步骤
 
+**第 1 步：注册 Koyeb (不要信用卡)**
+
+1. 浏览器打开 `https://app.koyeb.com/auth/signup`
+2. 点击 **Continue with GitHub** → 授权
+3. 进入控制台
+
+**第 2 步：创建 Web Service**
+
+1. Koyeb 控制台 → **Create Service → Web Service**
+2. 选 **GitHub** → 选 `timetreehole` 仓库
+3. 配置:
+
+| 设置项 | 值 | 说明 |
+|--------|-----|------|
+| Type | **Dockerfile** | Koyeb 自动检测 |
+| Dockerfile root directory | `backend` | 指向 backend 子目录 |
+| Port | **3000** | Express 监听端口 |
+| Health check | `/api/health` | 自动健康检查 |
+
+4. 点击 **Deploy**，等待 3-5 分钟
+
+**第 3 步：验证**
+
+构建完成后分配域名 `https://<名字>-<随机>.koyeb.app`：
+
 ```bash
-# 1. 把代码 push 到 GitHub
-cd D:/时间树洞APP
-git remote add origin https://github.com/<你的用户名>/timetreehole.git
-git push -u origin main
-
-# 2. 修改 render.yaml 第 9 行
-#    repo: https://github.com/<你的用户名>/timetreehole.git
-
-# 3. 登录 Render Dashboard
-#    https://dashboard.render.com
-#    New → Blueprint → 连接 GitHub 仓库
-#    Render 自动读取 render.yaml 创建服务
-
-# 4. 等待 3-5 分钟构建完成
-#    获得: https://timetreehole-api.onrender.com
-
-# 5. 验证
-curl https://timetreehole-api.onrender.com/api/health
+# 浏览器打开
+https://你的域名.koyeb.app/api/health
 # 预期: {"status":"ok","service":"时间树洞 · API",...}
-
-# 6. 配置环境变量 (Render Dashboard → Environment)
-#    APPLE_SHARED_SECRET  — App Store Connect 共享密钥
-#    APNS_KEY_ID         — Apple Developer Key ID
-#    APNS_TEAM_ID        — Apple Developer Team ID
-#    APPLE_IAP_ENV       — sandbox (测试) / production (上线)
-
-# 7. 防休眠 (免费层 15 分钟无请求会休眠)
-#    注册 https://uptimerobot.com
-#    添加 HTTP 监控: https://timetreehole-api.onrender.com/api/health
-#    间隔: 5 分钟
 ```
 
-### Render 免费层限制
+**第 4 步：配置环境变量**
 
-| 限制 | 影响 | 应对 |
-|------|------|------|
-| 15 分钟休眠 | 冷启动 ~30 秒 | UptimeRobot 5 分钟 ping |
-| 临时存储 | 每次重新部署重置 DB | 首次启动自动初始化演示数据 |
-| 750 小时/月 | 刚好 24/7 | 配合 UptimeRobot 可覆盖 |
-| 100 GB/月流量 | 小型 App 够用 | 用户量上来后升级 |
-| 512 MB 内存 | 够用 | 注意内存泄漏 |
+Koyeb 控制台 → Service → Settings → Secrets:
+
+| 变量 | 值 | 说明 |
+|------|-----|------|
+| `NODE_ENV` | `production` | **必填** |
+| `APPLE_SHARED_SECRET` | 32位十六进制 | 暂时可跳过 |
+| `APPLE_IAP_ENV` | `sandbox` | 测试阶段 |
+| `APNS_KEY_ID` | 10位字符 | 暂时可跳过 |
+| `APNS_TEAM_ID` | 10位字符 | 暂时可跳过 |
+
+修改后点 Save → Redeploy。
+
+**第 5 步：防休眠**
+
+Koyeb 免费层会 scale-to-zero（休眠），用 UptimeRobot 保活：
+
+1. 注册 `https://uptimerobot.com`
+2. 添加 HTTP 监控: `https://你的域名.koyeb.app/api/health`
+3. 间隔: **5 分钟**
+
+**第 6 步：更新 iOS 客户端**
+
+编辑 `TimeTreehole/TimeTreehole/Services/APIConfig.swift`：
+
+```swift
+#if RELEASE
+static let baseURL = "https://你的域名.koyeb.app"
+#endif
+```
+
+### Koyeb 免费层 vs Render 免费层
+
+| 对比 | Koyeb | Render |
+|------|-------|--------|
+| 信用卡 | ✅ 不需要 | ❌ 需要 |
+| Docker 部署 | ✅ | ✅ |
+| HTTPS | ✅ 自动 | ✅ 自动 |
+| 免费域名 | ✅ `*.koyeb.app` | ✅ `*.onrender.com` |
+| Git 自动部署 | ✅ | ✅ |
+| 休眠 | scale-to-zero | 15分钟 |
+| 存储 | 临时 | 临时 |
 
 ---
 
@@ -282,16 +288,15 @@ xcodebuild archive             ← 编译 + 归档
 
 ### 后端
 
-- [ ] 代码已 push 到 GitHub
-- [ ] `render.yaml` 中 `repo` 已改为真实 GitHub 地址
-- [ ] Render Blueprint 已创建, 服务正在运行
-- [ ] 访问 `https://<你的域名>.onrender.com/api/health` 返回 ok
-- [ ] 访问 `https://<你的域名>.onrender.com/api/treehole/stats` 有数据
-- [ ] Render Environment 已配置 `APPLE_SHARED_SECRET`
-- [ ] Render Environment 已配置 `APNS_KEY_ID`, `APNS_TEAM_ID`
+- [ ] 代码已 push 到 GitHub (https://github.com/qyh-carolqin/timetreehole)
+- [ ] Koyeb 服务已创建, Docker 构建成功
+- [ ] 访问 `https://<你的域名>.koyeb.app/api/health` 返回 ok
+- [ ] 访问 `https://<你的域名>.koyeb.app/api/treehole/stats` 有数据
+- [ ] Koyeb Secrets 已配置 `APPLE_SHARED_SECRET`
+- [ ] Koyeb Secrets 已配置 `APNS_KEY_ID`, `APNS_TEAM_ID`
 - [ ] `APPLE_IAP_ENV` 设为 `sandbox` (上线后改 `production`)
 - [ ] UptimeRobot 已配置 5 分钟 ping 防休眠
-- [ ] iOS 客户端 `APIConfig.swift` baseURL 与 Render 域名一致
+- [ ] iOS 客户端 `APIConfig.swift` baseURL 与 Koyeb 域名一致
 
 ### iOS
 
@@ -321,8 +326,8 @@ xcodebuild archive             ← 编译 + 归档
 | 任务 | 频率 | 操作 |
 |------|------|------|
 | 检查服务是否在线 | 每天 | UptimeRobot 自动告警 |
-| 更新后端代码 | 按需 | git push, Render 自动部署 |
-| 查看日志 | 按需 | Render Dashboard → Logs |
+| 更新后端代码 | 按需 | git push, Koyeb 自动部署 |
+| 查看日志 | 按需 | Koyeb Dashboard → Logs |
 | 检查构建状态 | 按需 | Codemagic Dashboard → Builds |
 | 检查配额 | 每月 | Codemagic Dashboard → Billing |
 
@@ -341,13 +346,13 @@ xcodebuild archive             ← 编译 + 归档
 
 | 场景 | 触发条件 | 解决方案 | 费用 |
 |------|----------|----------|------|
-| 数据不能丢 | 有真实用户 | Render 加持久磁盘 | $7/月 |
-| 流量超限 | 月访问 > 100GB | 升级 Render 付费层 | $7/月 |
-| 冷启动慢 | 忍不了 30 秒 | 升级后不休眠 | $7/月 |
-| 自定义域名 | 想要品牌域名 | 买域名 + 绑定 Render | ¥50/年 |
+| 数据不能丢 | 有真实用户 | Koyeb 加持久卷或迁移 VPS | $0-20/月 |
+| 流量超限 | 用户量增长 | 升级 Koyeb 实例 | 按量付费 |
+| 冷启动慢 | 忍不了 scale-to-zero | Koyeb 付费实例不缩容 | 按量付费 |
+| 自定义域名 | 想要品牌域名 | 买域名 + 绑定 Koyeb | ¥50/年 |
 | Codemagic 不够 | 月构建 > 50 次 | 升级付费或租云 Mac | $200/月或$1-2/小时 |
 
-**建议**: 现在先用免费层上线, 等有真实用户和收入了再升级。一个内购收入 (¥6) 就够覆盖一个月的 Render 付费层。
+**建议**: 现在先用免费层上线, 等有真实用户和收入了再升级。一个内购收入 (¥6) 就够覆盖一个月的升级费用。
 
 ---
 
@@ -370,6 +375,11 @@ xcodebuild archive             ← 编译 + 归档
 
 ### 备选 C: VPS 自建 ($5-20/月)
 
+- 配置文件: `render.yaml`
+- 适合: 有 Visa/Mastercard 国际信用卡
+- 与 Koyeb 功能几乎一致，自动 Docker 部署 + HTTPS
+- 操作: `bash deploy.sh cloud` 查看指南
+
 - 配置文件: `docker-compose.prod.yml`, `nginx/`, `setup-ssl.sh`
 - 适合: 用户量大了, 需要持久存储和稳定服务
 - 操作: `bash deploy.sh vps` 查看指南
@@ -381,10 +391,10 @@ xcodebuild archive             ← 编译 + 归档
 
 | 文件 | 用途 | 部署时需要修改 |
 |------|------|----------------|
-| `render.yaml` | Render 后端配置 | ✅ 第 9 行 repo 地址 |
-| `backend/Dockerfile` | Docker 构建 | ❌ 无需改 |
+| `backend/Dockerfile` | Docker 构建 (Koyeb/Render 通用) | ❌ 无需改 |
 | `backend/render-start.sh` | 启动脚本 | ❌ 无需改 |
-| `backend/.env.example` | 环境变量模板 | ❌ 参考, 不直接用 |
+| `backend/.env.example` | 环境变量模板 | ❌ 参考, 在网页填 |
+| `render.yaml` | Render 备选配置 | ✅ 第 9 行 repo 地址 |
 | `codemagic.yaml` | iOS CI/CD 配置 | ❌ 无需改 (变量在网页配) |
 | `TimeTreehole/project.yml` | XcodeGen 配置 | ✅ DEVELOPMENT_TEAM |
 | `generate-csr.sh` | 生成证书 (备选用) | ❌ 仅 GitHub Actions 方案需要 |

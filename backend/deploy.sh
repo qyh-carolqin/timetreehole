@@ -273,6 +273,76 @@ deploy_cloud() {
 }
 
 # ============================================================
+# 云平台：Koyeb 免费部署（推荐，不要信用卡）
+# ============================================================
+deploy_koyeb() {
+    echo ""
+    echo "  ☁️  Koyeb 免费部署 — 零成本、不要信用卡、自动 HTTPS"
+    echo ""
+    echo "  📋 前置条件："
+    echo "     - GitHub 仓库（代码已 push 到 https://github.com/qyh-carolqin/timetreehole）"
+    echo "     - Koyeb 账号（https://koyeb.com 用 GitHub 登录，不要信用卡）"
+    echo ""
+    echo "  🔧 操作步骤（3 分钟）："
+    echo ""
+    echo "  ┌─ 第 1 步：注册 Koyeb ─────────────────────────┐"
+    echo "  │  ① 浏览器打开 https://app.koyeb.com/auth/signup │"
+    echo "  │  ② 点击 Continue with GitHub                  │"
+    echo "  │  ③ 授权后进入控制台 (不要信用卡!)             │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ┌─ 第 2 步：创建服务 ──────────────────────────┐"
+    echo "  │  ① 控制台点 Create Service → Web Service       │"
+    echo "  │  ② 选 GitHub → 选 timetreehole 仓库            │"
+    echo "  │  ③ Settings:                                   │"
+    echo "  │     - Type: Dockerfile                         │"
+    echo "  │     - Dockerfile root directory: backend       │"
+    echo "  │     - Port: 3000                               │"
+    echo "  │     - Health check: /api/health                │"
+    echo "  │  ④ 点 Deploy (首次构建 3-5 分钟)              │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ┌─ 第 3 步：配置环境变量 ──────────────────────┐"
+    echo "  │  在 Koyeb 控制台 → Settings → Secrets:         │"
+    echo "  │  NODE_ENV                  = production        │"
+    echo "  │  APPLE_SHARED_SECRET       = <App Store 共享密钥>│"
+    echo "  │  APPLE_IAP_ENV             = sandbox            │"
+    echo "  │  APNS_KEY_ID              = <Apple Developer Key ID>│"
+    echo "  │  APNS_TEAM_ID             = <10位TeamID>       │"
+    echo "  │  APNS_TOPIC               = com.yourcompany.timetreehole│"
+    echo "  │  (APNS/IAP 密钥暂时可不填)                    │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ┌─ 第 4 步：更新 iOS 客户端 ───────────────────┐"
+    echo "  │  编辑 TimeTreehole/Services/APIConfig.swift    │"
+    echo "  │  把 baseURL 改成 Koyeb 分配的域名             │"
+    echo "  │  static let baseURL =                          │"
+    echo "  │    \"https://timetreehole-api.koyeb.app\"        │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ┌─ 第 5 步：防休眠 ────────────────────────────┐"
+    echo "  │  注册 https://uptimerobot.com                  │"
+    echo "  │  添加 HTTP 监控: https://<你的域名>.koyeb.app/api/health│"
+    echo "  │  间隔: 5 分钟                                 │"
+    echo "  └──────────────────────────────────────────────┘"
+    echo ""
+    echo "  ✅ Koyeb 免费层优势："
+    echo "     - 不要信用卡！GitHub 直接登录"
+    echo "     - 自动 HTTPS (Let's Encrypt)"
+    echo "     - 免费域名 *.koyeb.app"
+    echo "     - Scale-to-Zero (休眠后可自动唤醒)"
+    echo "     - 自动从 GitHub 构建部署"
+    echo ""
+    echo "  ⚠️  免费层限制："
+    echo "     - 休眠后冷启动 10-30 秒 (用 UptimeRobot 防休眠)"
+    echo "     - 磁盘临时存储 (每次新部署重置，首次启动自动种子数据)"
+    echo "     - 共享资源 (小规模 App 够用)"
+    echo ""
+    echo "  📖 完整部署文档: DEPLOYMENT.md"
+    echo ""
+}
+
+# ============================================================
 # iOS 构建上架 — Codemagic 免费层 (推荐, 无需 Mac)
 # ============================================================
 deploy_codemagic() {
@@ -358,6 +428,9 @@ case "$PLATFORM" in
     cloud|railway|render|fly)
         deploy_cloud
         ;;
+    koyeb)
+        deploy_koyeb
+        ;;
     codemagic|ios)
         deploy_codemagic
         ;;
@@ -369,7 +442,8 @@ case "$PLATFORM" in
         echo "    prod       — 生产环境 (API + Nginx + SSL)"
         echo "    local      — 本地 Node.js 开发"
         echo "    vps        — VPS 自建服务器指南"
-        echo "    cloud      — 云平台部署指南 (Render)"
+        echo "    koyeb      — 云平台部署 (Koyeb, 推荐, 不要信用卡)"
+        echo "    cloud      — 云平台部署 (Render, 需信用卡)"
         echo "    codemagic  — iOS 构建上架 (Codemagic 免费层)"
         echo ""
         echo "  📖 完整部署文档: DEPLOYMENT.md"
