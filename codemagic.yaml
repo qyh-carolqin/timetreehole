@@ -1,6 +1,6 @@
 # ============================================================
 #  Codemagic CI/CD 配置 — 时间树洞 iOS
-#  使用 xcodebuild + -allowProvisioningUpdates 手动签名
+#  使用 Fastlane 管理证书/描述文件/构建/上传
 #  免费额度: 500 分钟/月
 # ============================================================
 
@@ -28,94 +28,22 @@ workflows:
       - name: 安装依赖
         script: |
           brew install xcodegen
-          pip3 install PyJWT
-
-      - name: 清理旧证书和描述文件
-        script: |
-          # 1. 通过 API 删除 Apple 后台的所有 iOS 证书和描述文件
-          cd scripts
-          python3 revoke_certs.py
-          # 2. 清理本地钥匙串中的残留证书
-          echo ""
-          echo "--- 本地钥匙串清理 ---"
-          security find-identity -v -p codesigning 2>/dev/null | head -20 || true
-          for cert in "Apple Development" "Apple Distribution" "iPhone Developer" "iPhone Distribution"; do
-            security delete-certificate -c "$cert" 2>/dev/null && echo "  已删除本地证书: $cert" || true
-          done
-          echo "钥匙串清理完毕"
+          gem install bundler
+          bundle install
 
       - name: 生成 Xcode 工程
         script: |
           cd TimeTreehole
-          echo "Team ID: $(grep DEVELOPMENT_TEAM project.yml)"
           xcodegen generate
 
-      - name: 准备 API Key
+      - name: Fastlane 构建并上传 TestFlight
         script: |
-          mkdir -p /tmp/private_keys
-          echo "$APP_STORE_CONNECT_KEY" > /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-          chmod 600 /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-
-      - name: 编译并归档
-        script: |
-          cd TimeTreehole
-          set -o pipefail
-          xcodebuild archive \
-            -project TimeTreehole.xcodeproj \
-            -scheme TimeTreehole \
-            -archivePath build/TimeTreehole.xcarchive \
-            -destination "generic/platform=iOS" \
-            -configuration Release \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
-            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
-          echo "=== 归档完成 ==="
-          ls -la build/
-
-      - name: 导出 IPA
-        script: |
-          cd TimeTreehole
-          cat > ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>teamID</key>
-            <string>KANC5UYLGN</string>
-            <key>uploadSymbols</key>
-            <true/>
-            <key>uploadBitcode</key>
-            <false/>
-            <key>signingStyle</key>
-            <string>automatic</string>
-          </dict>
-          </plist>
-          EOF
-          xcodebuild -exportArchive \
-            -archivePath build/TimeTreehole.xcarchive \
-            -exportPath build/ipa \
-            -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
-            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
-          echo "=== IPA 导出完成 ==="
-          ls -la build/ipa/
+          bundle exec fastlane ios beta
 
     artifacts:
-      - TimeTreehole/build/ipa/*.ipa
+      - build/TimeTreehole.ipa
 
     publishing:
-      app_store_connect:
-        api_key: $APP_STORE_CONNECT_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
-        submit_to_app_store: false
-
       email:
         recipients:
           - 344833026@qq.com

@@ -1,0 +1,60 @@
+# ============================================================
+#  Fastlane 配置 — 时间树洞 iOS
+#  自动管理证书 + 描述文件 + 构建 + TestFlight 上传
+# ============================================================
+
+default_platform(:ios)
+
+ENV["FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT"] = "1"
+
+# API Key 认证 (从环境变量读取)
+def api_key_params
+  {
+    key_id: ENV["APP_STORE_CONNECT_KEY_IDENTIFIER"],
+    issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+    key_content: ENV["APP_STORE_CONNECT_KEY"]
+  }
+end
+
+platform :ios do
+
+  desc "构建并上传 TestFlight"
+  lane :beta do
+    # 1. 创建/获取 Apple Distribution 证书
+    cert(
+      type: "distribution",
+      platform: "ios",
+      api_key: api_key_params
+    )
+
+    # 2. 创建/获取 App Store 描述文件
+    sigh(
+      force: true,
+      app_identifier: "com.carolqin.timetreehole",
+      platform: "ios",
+      api_key: api_key_params
+    )
+
+    # 3. 编译构建
+    gym(
+      project: "TimeTreehole/TimeTreehole.xcodeproj",
+      scheme: "TimeTreehole",
+      configuration: "Release",
+      export_method: "app-store",
+      include_symbols: true,
+      include_bitcode: false,
+      output_directory: "build",
+      output_name: "TimeTreehole.ipa",
+      clean: true
+    )
+
+    # 4. 上传到 TestFlight
+    upload_to_testflight(
+      api_key: api_key_params,
+      ipa: "build/TimeTreehole.ipa",
+      skip_waiting_for_build_processing: true,
+      skip_submission: true
+    )
+  end
+
+end
