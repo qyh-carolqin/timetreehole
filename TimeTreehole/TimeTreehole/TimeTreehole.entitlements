@@ -2,8 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>aps-environment</key>
-	<string>production</string>
+	<!-- 推送暂时禁用，等配置 APNs 后恢复 -->
+	<!-- <key>aps-environment</key>
+	<string>production</string> -->
 	<!-- IAP 暂时禁用，等 App Store Connect 配置产品后恢复 -->
 	<!-- <key>com.apple.developer.in-app-purchase</key>
 	<true/> -->
