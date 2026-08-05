@@ -28,12 +28,9 @@ workflows:
       xcode: latest
 
       # 环境变量组 (在 Codemagic 网页后台填写)
+      # Codemagic 会自动用这里的 App Store Connect API Key 创建证书和描述文件
       groups:
         - appstore_credentials
-
-    # === 代码签名: 由 Codemagic 自动管理证书和描述文件 ===
-    code_signing:
-      automatic: true
 
     scripts:
       - name: 安装 XcodeGen
@@ -47,19 +44,51 @@ workflows:
           grep DEVELOPMENT_TEAM project.yml
           xcodegen generate
 
-      - name: 编译
+      - name: 编译并归档
         script: |
           cd TimeTreehole
           set -o pipefail
-          xcodebuild build \
+          xcodebuild archive \
             -project TimeTreehole.xcodeproj \
             -scheme TimeTreehole \
+            -archivePath build/TimeTreehole.xcarchive \
             -destination "generic/platform=iOS" \
-            -configuration Release \
-            CODE_SIGN_STYLE=Automatic
+            -configuration Release
+          echo "=== 归档文件列表 ==="
+          ls -la build/
+
+      - name: 导出 IPA
+        script: |
+          cd TimeTreehole
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>KANC5UYLGN</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>uploadBitcode</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath build/TimeTreehole.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist ExportOptions.plist
+          echo "=== IPA 文件列表 ==="
+          ls -la build/ipa/
+
+    artifacts:
+      - TimeTreehole/build/ipa/*.ipa
 
     publishing:
       # 自动上传到 App Store Connect -> TestFlight
+      # Codemagic 会使用 appstore_credentials 变量组自动处理签名
       app_store_connect:
         api_key: $APP_STORE_CONNECT_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
