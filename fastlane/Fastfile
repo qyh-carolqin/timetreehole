@@ -22,13 +22,15 @@ platform :ios do
   lane :beta do
     # 1. 创建/获取 Apple Distribution 证书
     cert(
-      type: "distribution",
+      development: false,
       platform: "ios",
       api_key: api_key_params
     )
 
     # 2. 创建/获取 App Store 描述文件
     sigh(
+      adhoc: false,
+      development: false,
       force: true,
       app_identifier: "com.carolqin.timetreehole",
       platform: "ios",
