@@ -28,13 +28,12 @@ workflows:
       xcode: latest
 
       # 环境变量组 (在 Codemagic 网页后台填写)
-      # 需要配置的变量:
-      #   APP_STORE_CONNECT_ISSUER_ID  — App Store Connect API Key 的 Issuer ID
-      #   APP_STORE_CONNECT_KEY        — .p8 文件的内容
-      #   APP_STORE_CONNECT_KEY_IDENTIFIER — Key ID (10位字符)
-      #   DEVELOPMENT_TEAM_ID          — Apple Developer Team ID (10位字符)
       groups:
         - appstore_credentials
+
+    # === 代码签名: 由 Codemagic 自动管理证书和描述文件 ===
+    code_signing:
+      automatic: true
 
     scripts:
       - name: 安装 XcodeGen
@@ -44,77 +43,28 @@ workflows:
       - name: 生成 Xcode 工程
         script: |
           cd TimeTreehole
-          # Team ID 已硬编码在 project.yml 中 (KANC5UYLGN)
           echo "project.yml 中的 Team ID:"
           grep DEVELOPMENT_TEAM project.yml
           xcodegen generate
 
-      - name: 写入 API Key 供 Xcode 自动签名
-        script: |
-          mkdir -p /tmp/private_keys
-          echo "$APP_STORE_CONNECT_KEY" > /tmp/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_IDENTIFIER.p8
-          chmod 600 /tmp/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_IDENTIFIER.p8
-          echo "API Key 文件已创建: /tmp/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_IDENTIFIER.p8"
-
-      - name: 编译并归档
+      - name: 编译
         script: |
           cd TimeTreehole
           set -o pipefail
-          xcodebuild archive \
+          xcodebuild build \
             -project TimeTreehole.xcodeproj \
             -scheme TimeTreehole \
-            -archivePath build/TimeTreehole.xcarchive \
             -destination "generic/platform=iOS" \
             -configuration Release \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath /tmp/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_IDENTIFIER.p8 \
-            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
             CODE_SIGN_STYLE=Automatic
-          echo "=== 归档文件列表 ==="
-          ls -la build/
-
-      - name: 导出 IPA
-        script: |
-          cd TimeTreehole
-          cat > ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>teamID</key>
-            <string>KANC5UYLGN</string>
-            <key>uploadSymbols</key>
-            <true/>
-            <key>uploadBitcode</key>
-            <false/>
-          </dict>
-          </plist>
-          EOF
-          xcodebuild -exportArchive \
-            -archivePath build/TimeTreehole.xcarchive \
-            -exportPath build/ipa \
-            -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath /tmp/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_IDENTIFIER.p8 \
-            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
-          echo "=== IPA 文件列表 ==="
-          ls -la build/ipa/
-
-    artifacts:
-      - TimeTreehole/build/ipa/*.ipa
 
     publishing:
-      # 自动上传到 App Store Connect → TestFlight
+      # 自动上传到 App Store Connect -> TestFlight
       app_store_connect:
         api_key: $APP_STORE_CONNECT_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
-        # 设为 true 后，上传完成自动提交审核 (首次上架建议设 false，手动提交)
         submit_to_app_store: false
 
       # 构建结果邮件通知
