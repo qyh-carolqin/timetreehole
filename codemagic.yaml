@@ -25,9 +25,15 @@ workflows:
         - appstore_credentials
 
     scripts:
-      - name: 安装 XcodeGen
+      - name: 安装依赖
         script: |
           brew install xcodegen
+          pip3 install PyJWT
+
+      - name: 清理旧证书和描述文件
+        script: |
+          cd scripts
+          python3 revoke_certs.py
 
       - name: 生成 Xcode 工程
         script: |
@@ -40,9 +46,8 @@ workflows:
           mkdir -p /tmp/private_keys
           echo "$APP_STORE_CONNECT_KEY" > /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
           chmod 600 /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-          echo "API Key: AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
 
-      - name: 编译并归档
+      - name: 编译并归档 (Distribution 签名)
         script: |
           cd TimeTreehole
           set -o pipefail
@@ -55,7 +60,9 @@ workflows:
             -allowProvisioningUpdates \
             -authenticationKeyPath /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
             -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
+            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY="Apple Distribution"
           echo "=== 归档完成 ==="
           ls -la build/
 
