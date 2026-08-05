@@ -1,6 +1,6 @@
 # ============================================================
 #  Codemagic CI/CD 配置 — 时间树洞 iOS
-#  使用 Codemagic 原生自动签名，无需手动管理证书/描述文件
+#  使用 xcodebuild + -allowProvisioningUpdates 手动签名
 #  免费额度: 500 分钟/月
 # ============================================================
 
@@ -24,16 +24,13 @@ workflows:
       groups:
         - appstore_credentials
 
-    # ========== Codemagic 原生自动代码签名 ==========
-    code_signing:
-      automatic: true
-
     scripts:
       - name: 安装依赖
         script: |
           brew install xcodegen
+          pip3 install PyJWT
 
-      - name: 清理旧证书
+      - name: 清理旧证书和描述文件
         script: |
           cd scripts
           python3 revoke_certs.py
@@ -41,18 +38,70 @@ workflows:
       - name: 生成 Xcode 工程
         script: |
           cd TimeTreehole
+          echo "Team ID: $(grep DEVELOPMENT_TEAM project.yml)"
           xcodegen generate
 
-      - name: 构建归档并导出 IPA
+      - name: 准备 API Key
+        script: |
+          mkdir -p /tmp/private_keys
+          echo "$APP_STORE_CONNECT_KEY" > /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          chmod 600 /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+
+      - name: 编译并归档
         script: |
           cd TimeTreehole
-          xcode-project build-ipa \
-            --project TimeTreehole.xcodeproj \
-            --scheme TimeTreehole \
-            --archive-flags="-destination 'generic/platform=iOS'"
+          set -o pipefail
+          xcodebuild archive \
+            -project TimeTreehole.xcodeproj \
+            -scheme TimeTreehole \
+            -archivePath build/TimeTreehole.xcarchive \
+            -destination "generic/platform=iOS" \
+            -configuration Release \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM="KANC5UYLGN" \
+            PROVISIONING_PROFILE_SPECIFIER=""
+          echo "=== 归档完成 ==="
+          ls -la build/
+
+      - name: 导出 IPA
+        script: |
+          cd TimeTreehole
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>KANC5UYLGN</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>signingStyle</key>
+            <string>automatic</string>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath build/TimeTreehole.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
+          echo "=== IPA 导出完成 ==="
+          ls -la build/ipa/
 
     artifacts:
-      - build/ios/ipa/*.ipa
+      - TimeTreehole/build/ipa/*.ipa
 
     publishing:
       app_store_connect:
