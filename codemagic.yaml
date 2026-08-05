@@ -75,7 +75,7 @@ workflows:
       - name: 导出 IPA
         script: |
           cd TimeTreehole
-          cat > ExportOptions.plist <<'EOF'
+          cat > ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -83,7 +83,7 @@ workflows:
             <key>method</key>
             <string>app-store</string>
             <key>teamID</key>
-            <string>$(DEVELOPMENT_TEAM_ID)</string>
+            <string>$DEVELOPMENT_TEAM_ID</string>
             <key>uploadSymbols</key>
             <true/>
             <key>uploadBitcode</key>
@@ -93,17 +93,18 @@ workflows:
           EOF
           xcodebuild -exportArchive \
             -archivePath build/TimeTreehole.xcarchive \
-            -exportPath build/TimeTreehole.ipa \
+            -exportPath build/ipa \
             -exportOptionsPlist ExportOptions.plist \
             -allowProvisioningUpdates \
             -authenticationKeyPath /tmp/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_IDENTIFIER.p8 \
             -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
             -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
             | xcpretty
+          echo "=== IPA 文件列表 ==="
+          ls -la build/ipa/
 
     artifacts:
-      - TimeTreehole/build/*.ipa
-      - TimeTreehole/build/*.xcarchive
+      - TimeTreehole/build/ipa/*.ipa
 
     publishing:
       # 自动上传到 App Store Connect → TestFlight
