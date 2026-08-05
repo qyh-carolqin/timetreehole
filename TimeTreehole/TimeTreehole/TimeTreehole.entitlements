@@ -4,8 +4,9 @@
 <dict>
 	<key>aps-environment</key>
 	<string>production</string>
-	<key>com.apple.developer.in-app-purchase</key>
-	<true/>
+	<!-- IAP 暂时禁用，等 App Store Connect 配置产品后恢复 -->
+	<!-- <key>com.apple.developer.in-app-purchase</key>
+	<true/> -->
 	<key>com.apple.developer.team-identifier</key>
 	<string>$(DEVELOPMENT_TEAM)</string>
 </dict>
