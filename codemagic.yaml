@@ -32,8 +32,17 @@ workflows:
 
       - name: 清理旧证书和描述文件
         script: |
+          # 1. 通过 API 删除 Apple 后台的所有 iOS 证书和描述文件
           cd scripts
           python3 revoke_certs.py
+          # 2. 清理本地钥匙串中的残留证书
+          echo ""
+          echo "--- 本地钥匙串清理 ---"
+          security find-identity -v -p codesigning 2>/dev/null | head -20 || true
+          for cert in "Apple Development" "Apple Distribution" "iPhone Developer" "iPhone Distribution"; do
+            security delete-certificate -c "$cert" 2>/dev/null && echo "  已删除本地证书: $cert" || true
+          done
+          echo "钥匙串清理完毕"
 
       - name: 生成 Xcode 工程
         script: |
