@@ -60,11 +60,7 @@ workflows:
             -allowProvisioningUpdates \
             -authenticationKeyPath /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
             -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            DEVELOPMENT_TEAM="KANC5UYLGN" \
-            PROVISIONING_PROFILE_SPECIFIER=""
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
           echo "=== 归档完成 ==="
           ls -la build/
 
