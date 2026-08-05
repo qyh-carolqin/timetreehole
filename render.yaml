@@ -26,7 +26,7 @@ services:
       - key: APNS_TEAM_ID
         sync: false
       - key: APNS_TOPIC
-        value: com.yourcompany.timetreehole
+        value: com.carolqin.timetreehole
       # 存储路径
       - key: DB_PATH
         value: /app/data/timetreehole.db

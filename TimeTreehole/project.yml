@@ -1,7 +1,7 @@
 name: TimeTreehole
 
 options:
-  bundleIdPrefix: com.yourcompany
+  bundleIdPrefix: com.carolqin
   deploymentTarget:
     iOS: "16.0"
   xcodeVersion: "15.0"
@@ -27,12 +27,12 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: TimeTreehole/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.yourcompany.timetreehole
+        PRODUCT_BUNDLE_IDENTIFIER: com.carolqin.timetreehole
         CODE_SIGN_ENTITLEMENTS: TimeTreehole/TimeTreehole.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
-        DEVELOPMENT_TEAM: ""
+        DEVELOPMENT_TEAM: "KANC5UYLGN"
     dependencies: []
     preBuildScripts: []
     postBuildScripts: []

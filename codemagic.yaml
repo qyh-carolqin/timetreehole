@@ -31,7 +31,7 @@ workflows:
       # Codemagic 会自动创建/管理证书和描述文件
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.yourcompany.timetreehole
+        bundle_identifier: com.carolqin.timetreehole
 
       # 环境变量组 (在 Codemagic 网页后台填写)
       # 需要配置的变量:
@@ -84,7 +84,7 @@ workflows:
       # 构建结果邮件通知
       email:
         recipients:
-          - your-email@example.com
+          - 344833026@qq.com
         notify:
           success: true
           failure: true

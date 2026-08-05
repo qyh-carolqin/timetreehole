@@ -247,7 +247,7 @@ deploy_railway() {
     echo "  │  APPLE_IAP_ENV             = sandbox            │"
     echo "  │  APNS_KEY_ID               = <Apple Developer Key ID>│"
     echo "  │  APNS_TEAM_ID              = <10位TeamID>      │"
-    echo "  │  APNS_TOPIC                = com.yourcompany.timetreehole│"
+    echo "  │  APNS_TOPIC                = com.carolqin.timetreehole│"
     echo "  │  (APNS/IAP 密钥上线前必须填入)                 │"
     echo "  └──────────────────────────────────────────────┘"
     echo ""
