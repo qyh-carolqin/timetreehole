@@ -44,8 +44,9 @@ workflows:
       - name: 生成 Xcode 工程
         script: |
           cd TimeTreehole
-          # 填入 Team ID (从 Apple Developer → Membership 获取)
-          sed -i '' 's/DEVELOPMENT_TEAM: ""/DEVELOPMENT_TEAM: "'"$DEVELOPMENT_TEAM_ID"'"/' project.yml
+          # Team ID 已硬编码在 project.yml 中 (KANC5UYLGN)
+          echo "project.yml 中的 Team ID:"
+          grep DEVELOPMENT_TEAM project.yml
           xcodegen generate
 
       - name: 写入 API Key 供 Xcode 自动签名
@@ -69,8 +70,7 @@ workflows:
             -authenticationKeyPath /tmp/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_IDENTIFIER.p8 \
             -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
             -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM_ID
+            CODE_SIGN_STYLE=Automatic
           echo "=== 归档文件列表 ==="
           ls -la build/
 
@@ -85,7 +85,7 @@ workflows:
             <key>method</key>
             <string>app-store</string>
             <key>teamID</key>
-            <string>$DEVELOPMENT_TEAM_ID</string>
+            <string>KANC5UYLGN</string>
             <key>uploadSymbols</key>
             <true/>
             <key>uploadBitcode</key>
