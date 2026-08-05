@@ -8,13 +8,9 @@ workflows:
   ios-workflow:
     name: 时间树洞 iOS
 
-    # 构建超时 (分钟)
     max_build_duration: 60
-
-    # 免费层使用 Mac mini M1
     instance_type: mac_mini_m1
 
-    # 触发条件: push 到 main 分支或打 tag
     triggering:
       events:
         - push
@@ -24,11 +20,7 @@ workflows:
       cancel_previous_builds: true
 
     environment:
-      # Xcode 版本
       xcode: latest
-
-      # 环境变量组 (在 Codemagic 网页后台填写)
-      # Codemagic 会自动用这里的 App Store Connect API Key 创建证书和描述文件
       groups:
         - appstore_credentials
 
@@ -40,9 +32,15 @@ workflows:
       - name: 生成 Xcode 工程
         script: |
           cd TimeTreehole
-          echo "project.yml 中的 Team ID:"
-          grep DEVELOPMENT_TEAM project.yml
+          echo "Team ID: $(grep DEVELOPMENT_TEAM project.yml)"
           xcodegen generate
+
+      - name: 准备 API Key
+        script: |
+          mkdir -p /tmp/private_keys
+          echo "$APP_STORE_CONNECT_KEY" > /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          chmod 600 /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          echo "API Key: AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
 
       - name: 编译并归档
         script: |
@@ -53,8 +51,12 @@ workflows:
             -scheme TimeTreehole \
             -archivePath build/TimeTreehole.xcarchive \
             -destination "generic/platform=iOS" \
-            -configuration Release
-          echo "=== 归档文件列表 ==="
+            -configuration Release \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
+          echo "=== 归档完成 ==="
           ls -la build/
 
       - name: 导出 IPA
@@ -79,16 +81,18 @@ workflows:
           xcodebuild -exportArchive \
             -archivePath build/TimeTreehole.xcarchive \
             -exportPath build/ipa \
-            -exportOptionsPlist ExportOptions.plist
-          echo "=== IPA 文件列表 ==="
+            -exportOptionsPlist ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath /tmp/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
+          echo "=== IPA 导出完成 ==="
           ls -la build/ipa/
 
     artifacts:
       - TimeTreehole/build/ipa/*.ipa
 
     publishing:
-      # 自动上传到 App Store Connect -> TestFlight
-      # Codemagic 会使用 appstore_credentials 变量组自动处理签名
       app_store_connect:
         api_key: $APP_STORE_CONNECT_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
@@ -96,7 +100,6 @@ workflows:
         submit_to_testflight: true
         submit_to_app_store: false
 
-      # 构建结果邮件通知
       email:
         recipients:
           - 344833026@qq.com
