@@ -1,6 +1,7 @@
 # 时间树洞 · 部署文档
 
-> 最后更新: 2026-08-03
+> 最后��新: 2026-08-04
+> 状态: 🎉 后端已上线 → `https://timetreehole-api-production-f42f.up.railway.app`
 > 架构: 后端 Railway 免费层 + iOS 构建 Codemagic 免费层
 > 总成本: $0/月 (仅 Apple Developer 年费 $99/年)
 > 无需信用卡、无需买域名、无需买服务器
@@ -289,15 +290,16 @@ xcodebuild archive             ← 编译 + 归档
 
 ### 后端
 
-- [ ] 代码已 push 到 GitHub (https://github.com/qyh-carolqin/timetreehole)
-- [ ] Railway 项目已创建, Docker 构建成功
-- [ ] Railway 域名已生成, 访问 `/api/health` 返回 ok
+- [x] 代码已 push 到 GitHub (https://github.com/qyh-carolqin/timetreehole)
+- [x] Railway 项目已创建, Docker 构建成功
+- [x] Railway 域名已生成: `timetreehole-api-production-f42f.up.railway.app`
+- [x] 访问 `/api/health` 返回 ok ✅
 - [ ] 访问 `/api/treehole/stats` 有数据
 - [ ] Railway Variables 已配置 `APPLE_SHARED_SECRET`
 - [ ] Railway Variables 已配置 `APNS_KEY_ID`, `APNS_TEAM_ID`
 - [ ] `APPLE_IAP_ENV` 设为 `sandbox` (上线后改 `production`)
 - [ ] UptimeRobot 已配置 5 分钟 ping 防休眠
-- [ ] iOS 客户端 `APIConfig.swift` baseURL 与 Railway 域名一致
+- [x] iOS 客户端 `APIConfig.swift` baseURL 已更新
 
 ### iOS
 

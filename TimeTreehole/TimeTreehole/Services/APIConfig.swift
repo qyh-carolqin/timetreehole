@@ -11,14 +11,11 @@ enum APIConfig {
 
     /// 后端 API 基础地址
     /// DEBUG → 本地开发服务器 (localhost:3000)
-    /// RELEASE → Render 免费部署 (自动 HTTPS)
-    ///
-    /// 部署后把下面这行改成 Render 分配的域名，例如:
-    /// static let baseURL = "https://timetreehole-api.onrender.com"
+    /// RELEASE → Railway 免费部署 (自动 HTTPS)
     #if DEBUG
     static let baseURL = "http://localhost:3000"
     #else
-    static let baseURL = "https://timetreehole-api.onrender.com"
+    static let baseURL = "https://timetreehole-api-production-f42f.up.railway.app"
     #endif
 
     /// 当前运行环境
