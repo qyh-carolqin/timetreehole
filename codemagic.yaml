@@ -58,6 +58,7 @@ workflows:
       - name: 编译并归档
         script: |
           cd TimeTreehole
+          set -o pipefail
           xcodebuild archive \
             -project TimeTreehole.xcodeproj \
             -scheme TimeTreehole \
@@ -69,8 +70,9 @@ workflows:
             -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
             -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
             CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM_ID \
-            | xcpretty
+            DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM_ID
+          echo "=== 归档文件列表 ==="
+          ls -la build/
 
       - name: 导出 IPA
         script: |
@@ -98,8 +100,7 @@ workflows:
             -allowProvisioningUpdates \
             -authenticationKeyPath /tmp/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_IDENTIFIER.p8 \
             -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
-            | xcpretty
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
           echo "=== IPA 文件列表 ==="
           ls -la build/ipa/
 
