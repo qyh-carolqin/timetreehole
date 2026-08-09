@@ -33,7 +33,12 @@ targets:
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         DEVELOPMENT_TEAM: "KANC5UYLGN"
-        CODE_SIGN_STYLE: Automatic
+      configs:
+        Release:
+          # CI/TestFlight 发布构建: 手动签名, 使用 fastlane(sigh) 生成的 App Store 描述文件
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "Apple Distribution"
+          PROVISIONING_PROFILE_SPECIFIER: "com.carolqin.timetreehole AppStore"
     dependencies: []
     preBuildScripts: []
     postBuildScripts: []
