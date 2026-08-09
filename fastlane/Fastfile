@@ -31,10 +31,8 @@ platform :ios do
       api_key: api_key_params
     )
 
-    # 2. 创建/获取 App Store 描述文件
+    # 2. 创建/获取 App Store 描述文件 (默认即 App Store 发布描述文件, 不传 adhoc/development)
     sigh(
-      adhoc: false,
-      development: false,
       force: true,
       app_identifier: "com.carolqin.timetreehole",
       platform: "ios",
