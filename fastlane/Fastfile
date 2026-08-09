@@ -18,30 +18,42 @@ def api_key_params
   }
 end
 
-# 定位 Xcode 内的 transporter (App Store 上传工具)
+# 定位 Xcode 内的 transporter 目录 (App Store 上传工具)
 # Xcode 11+ 移除了 Application Loader, transporter 改到 Transporter.app 内;
-# 部分 fastlane 版本/部分 Xcode 版本探测失败, 这里手动定位并强制指定路径,
-# 否则 upload_to_testflight 报 "Could not find transporter at .../Contents/Developer/."
+# fastlane 2.237 在 Xcode 26 下按老的 Application Loader 路径探测失败。
+# 关键: FASTLANE_ITUNES_TRANSPORTER_PATH 必须指向【目录】(fastlane 会 Dir.chdir 进去再执行
+# iTMSTransporter), 传二进制文件本身会触发 Dir.chdir 报 ENOTDIR。
+# 返回值: { dir: 目录路径, use_shell: 是否用 .cmd shell 脚本执行器(自带 classpath 装配) }
 def find_transporter
   dev_dir = `xcode-select -p`.strip
   return nil if dev_dir.empty?
 
-  # 1) 优先用 xcrun (跟随当前 xcode-select 选中的 Xcode)
+  candidates = []
+
+  # 1) xcrun 解析出的二进制所在目录 (Xcode 26 下通常是 /Applications/Xcode-XX.app/Contents/Developer/usr/bin)
   begin
     r = `xcrun --find iTMSTransporter`.strip
-    return r unless r.empty?
+    candidates << File.dirname(r) unless r.empty?
   rescue
     # ignore
   end
 
-  # 2) 兜底: 直接拼 Transporter.app 内的已知位置 (兼容 Xcode 15/16/26)
+  # 2) Transporter.app 内的已知位置 (兼容 Xcode 15/16; itms/bin 含完整 Java 环境与 .cmd 脚本)
   base = File.join(dev_dir, "Applications/Transporter.app/Contents")
-  candidates = [
-    File.join(base, "itms/bin/iTMSTransporter"),
-    File.join(base, "MacOS/transporter"),
-    File.join(base, "MacOS/iTMSTransporter")
+  candidates += [
+    File.join(base, "itms/bin"),
+    File.join(base, "MacOS")
   ]
-  candidates.each { |c| return c if File.exist?(c) }
+
+  candidates.each do |dir|
+    next unless File.directory?(dir)
+    # 优先用 .cmd 脚本 (自带 classpath 装配, 最稳); 否则用二进制
+    if File.exist?(File.join(dir, "iTMSTransporter.cmd"))
+      return { dir: dir, use_shell: true }
+    elsif File.exist?(File.join(dir, "iTMSTransporter"))
+      return { dir: dir, use_shell: false }
+    end
+  end
   nil
 end
 
@@ -92,13 +104,19 @@ platform :ios do
     )
 
     # 4. 上传到 TestFlight
-    #    手动定位 transporter, 规避 Xcode 26 下 fastlane 探测失败
-    transporter = find_transporter
-    if transporter && !transporter.empty?
-      ENV["FASTLANE_ITUNES_TRANSPORTER_PATH"] = transporter
-      UI.message("✅ 使用 transporter: #{transporter}")
+    #    手动定位 transporter 目录, 规避 Xcode 26 下 fastlane 探测失败
+    #    (FASTLANE_ITUNES_TRANSPORTER_PATH 必须是目录, 否则 Dir.chdir 报 ENOTDIR)
+    t = find_transporter
+    if t
+      ENV["FASTLANE_ITUNES_TRANSPORTER_PATH"] = t[:dir]
+      if t[:use_shell]
+        ENV["FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT"] = "1"
+      else
+        ENV.delete("FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT")
+      end
+      UI.message("✅ 使用 transporter 目录: #{t[:dir]} (shell 脚本=#{t[:use_shell]})")
     else
-      UI.important("⚠️ 未能定位 iTMSTransporter, 上传步骤可能失败 (可尝试在 codemagic.yaml 将 xcode 固定为稳定版)")
+      UI.important("⚠️ 未能定位 iTMSTransporter 目录, 上传步骤可能失败 (可尝试在 codemagic.yaml 将 xcode 固定为稳定版)")
     end
 
     upload_to_testflight(
