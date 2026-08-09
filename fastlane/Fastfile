@@ -5,8 +5,6 @@
 
 default_platform(:ios)
 
-ENV["FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT"] = "1"
-
 # API Key 认证 (从环境变量读取)
 # 注意: fastlane 的 api_key 哈希用 :key 承载 .p8 内容 (:key_content / :key_filepath 为兼容别名)
 def api_key_params
@@ -18,6 +16,33 @@ def api_key_params
     # 普通 App Store 团队 (非企业版) — 不设置 cert 会无法判断团队类型而崩溃
     in_house: false
   }
+end
+
+# 定位 Xcode 内的 transporter (App Store 上传工具)
+# Xcode 11+ 移除了 Application Loader, transporter 改到 Transporter.app 内;
+# 部分 fastlane 版本/部分 Xcode 版本探测失败, 这里手动定位并强制指定路径,
+# 否则 upload_to_testflight 报 "Could not find transporter at .../Contents/Developer/."
+def find_transporter
+  dev_dir = `xcode-select -p`.strip
+  return nil if dev_dir.empty?
+
+  # 1) 优先用 xcrun (跟随当前 xcode-select 选中的 Xcode)
+  begin
+    r = `xcrun --find iTMSTransporter`.strip
+    return r unless r.empty?
+  rescue
+    # ignore
+  end
+
+  # 2) 兜底: 直接拼 Transporter.app 内的已知位置 (兼容 Xcode 15/16/26)
+  base = File.join(dev_dir, "Applications/Transporter.app/Contents")
+  candidates = [
+    File.join(base, "itms/bin/iTMSTransporter"),
+    File.join(base, "MacOS/transporter"),
+    File.join(base, "MacOS/iTMSTransporter")
+  ]
+  candidates.each { |c| return c if File.exist?(c) }
+  nil
 end
 
 platform :ios do
@@ -67,6 +92,15 @@ platform :ios do
     )
 
     # 4. 上传到 TestFlight
+    #    手动定位 transporter, 规避 Xcode 26 下 fastlane 探测失败
+    transporter = find_transporter
+    if transporter && !transporter.empty?
+      ENV["FASTLANE_ITUNES_TRANSPORTER_PATH"] = transporter
+      UI.message("✅ 使用 transporter: #{transporter}")
+    else
+      UI.important("⚠️ 未能定位 iTMSTransporter, 上传步骤可能失败 (可尝试在 codemagic.yaml 将 xcode 固定为稳定版)")
+    end
+
     upload_to_testflight(
       api_key: api_key_params,
       ipa: "build/TimeTreehole.ipa",
