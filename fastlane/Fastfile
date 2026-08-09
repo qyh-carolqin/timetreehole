@@ -3,7 +3,11 @@
 #  自动管理证书 + 描述文件 + 构建 + TestFlight 上传
 # ============================================================
 
+require 'spaceship'
+
 default_platform(:ios)
+
+APP_IDENTIFIER = "com.carolqin.timetreehole"
 
 # API Key 认证 (从环境变量读取)
 # 注意: fastlane 的 api_key 哈希用 :key 承载 .p8 内容 (:key_content / :key_filepath 为兼容别名)
@@ -18,49 +22,108 @@ def api_key_params
   }
 end
 
-# 定位 Xcode 内的 transporter 目录 (App Store 上传工具)
-# Xcode 11+ 移除了 Application Loader, transporter 改到 Transporter.app 内;
-# fastlane 2.237 在 Xcode 26 下按老的 Application Loader 路径探测失败。
-# 关键: FASTLANE_ITUNES_TRANSPORTER_PATH 必须指向【目录】(fastlane 会 Dir.chdir 进去再执行
-# iTMSTransporter), 传二进制文件本身会触发 Dir.chdir 报 ENOTDIR。
-# 返回值: { dir: 目录路径, use_shell: 是否用 .cmd shell 脚本执行器(自带 classpath 装配) }
-def find_transporter
-  dev_dir = `xcode-select -p`.strip
-  return nil if dev_dir.empty?
+# ------------------------------------------------------------
+#  上传通道 (关键!)
+# ------------------------------------------------------------
+# fastlane 2.237 的 ItunesTransporter 有三个执行器, 选择逻辑见
+# fastlane_core/lib/fastlane_core/itunes_transporter.rb:995
+#
+#   should_use_altool? = !use_shell_script
+#                        && altool_compatible_command      # pilot 恒传 true
+#                        && !Helper.user_defined_itms_path?
+#                        && Helper.mac? && xcode_at_least?(14)
+#
+# Xcode 26 已经删掉了内嵌的 iTMSTransporter Java 套件
+# (Contents/SharedFrameworks/ContentDeliveryServices.framework/.../itms),
+# 所以 Java / ShellScript 两个执行器必然失败:
+#   - JavaTransporterExecutor  → FileUtils.cd(Helper.itms_path) → 路径不存在
+#   - ShellScriptTransporter   → Helper.transporter_path 同样依赖 itms_path
+#
+# 唯一可用的是 AltoolTransporterExecutor (xcrun altool), 而它的启用条件是
+# 【这两个环境变量都不能设置】。之前设置它们反而把唯一的活路堵死了。
+# 因此这里显式清空, 防止 CI 镜像预置了这些变量。
+def force_altool_transporter!
+  %w[
+    FASTLANE_ITUNES_TRANSPORTER_PATH
+    FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT
+  ].each do |var|
+    UI.important("清除环境变量 #{var} (会导致 fastlane 放弃 altool 通道)") if ENV[var]
+    ENV.delete(var)
+  end
+  UI.message("📤 上传通道: xcrun altool (Xcode 26 下唯一可用)")
+end
 
-  candidates = []
-
-  # 1) xcrun 解析出的二进制所在目录 (Xcode 26 下通常是 /Applications/Xcode-XX.app/Contents/Developer/usr/bin)
-  begin
-    r = `xcrun --find iTMSTransporter`.strip
-    candidates << File.dirname(r) unless r.empty?
-  rescue
-    # ignore
+# ------------------------------------------------------------
+#  签名资产清理 (防止 Apple 证书配额被烧完)
+# ------------------------------------------------------------
+# Codemagic 的 keychain 每次构建都是全新的, 本地不存在私钥, 所以 `cert`
+# 每跑一次就在 Apple 后台新建一张 Apple Distribution 证书。
+# Apple 的发布证书上限是 3 张, 撞上限后 cert 步骤会直接失败。
+#
+# 这里在建证书之前, 先把本 App 的旧 App Store 描述文件和所有发布证书吊销,
+# 保证每次构建都有配额, 同时让干净的 profile 名字 (不带时间戳) 被释放出来。
+#
+# 说明: 吊销发布证书不会影响已经上传到 TestFlight / App Store 的构建,
+#       Apple 侧会重新签名。设置 SKIP_SIGNING_CLEANUP=1 可跳过本步骤。
+def cleanup_signing_assets!
+  if ENV["SKIP_SIGNING_CLEANUP"].to_s == "1"
+    UI.important("⏭  已设置 SKIP_SIGNING_CLEANUP=1, 跳过签名资产清理")
+    return
   end
 
-  # 2) Transporter.app 内的已知位置 (兼容 Xcode 15/16; itms/bin 含完整 Java 环境与 .cmd 脚本)
-  base = File.join(dev_dir, "Applications/Transporter.app/Contents")
-  candidates += [
-    File.join(base, "itms/bin"),
-    File.join(base, "MacOS")
-  ]
+  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+    key_id: ENV["APP_STORE_CONNECT_KEY_IDENTIFIER"],
+    issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+    key: ENV["APP_STORE_CONNECT_KEY"],
+    in_house: false
+  )
 
-  candidates.each do |dir|
-    next unless File.directory?(dir)
-    # 优先用 .cmd 脚本 (自带 classpath 装配, 最稳); 否则用二进制
-    if File.exist?(File.join(dir, "iTMSTransporter.cmd"))
-      return { dir: dir, use_shell: true }
-    elsif File.exist?(File.join(dir, "iTMSTransporter"))
-      return { dir: dir, use_shell: false }
+  # 1) 先删描述文件 (它引用证书, 先删更干净)
+  profiles = Spaceship::ConnectAPI::Profile.all(
+    filter: { profileType: Spaceship::ConnectAPI::Profile::ProfileType::IOS_APP_STORE }
+  )
+  stale_profiles = profiles.select { |p| p.name.to_s.start_with?(APP_IDENTIFIER) }
+  if stale_profiles.empty?
+    UI.message("🧹 无历史 App Store 描述文件")
+  else
+    stale_profiles.each do |p|
+      p.delete!
+      UI.message("🧹 已删除描述文件: #{p.name}")
     end
   end
-  nil
+
+  # 2) 再吊销发布证书 (本地无私钥, 留着也用不了, 只会占配额)
+  dist_types = [
+    Spaceship::ConnectAPI::Certificate::CertificateType::DISTRIBUTION,
+    Spaceship::ConnectAPI::Certificate::CertificateType::IOS_DISTRIBUTION
+  ]
+  dist_certs = Spaceship::ConnectAPI::Certificate.all.select do |c|
+    dist_types.include?(c.certificate_type)
+  end
+  if dist_certs.empty?
+    UI.message("🧹 无历史发布证书")
+  else
+    dist_certs.each do |c|
+      c.delete!
+      UI.message("🧹 已吊销发布证书: #{c.id} (#{c.display_name})")
+    end
+  end
+
+  UI.success("✅ 签名资产清理完成, 证书配额已释放")
+rescue => e
+  # 清理失败不应该阻断构建 — 万一 API 变了, 让 cert 自己去撞
+  UI.important("⚠️ 签名资产清理失败 (忽略继续): #{e.message}")
 end
 
 platform :ios do
 
   desc "构建并上传 TestFlight"
   lane :beta do
+    force_altool_transporter!
+
+    # 0. 清理历史签名资产, 释放 Apple 证书配额
+    cleanup_signing_assets!
+
     # 1. 创建/获取 Apple Distribution 证书
     cert(
       development: false,
@@ -71,16 +134,15 @@ platform :ios do
     # 2. 创建/获取 App Store 描述文件 (默认即 App Store 发布描述文件, 不传 adhoc/development)
     sigh(
       force: true,
-      app_identifier: "com.carolqin.timetreehole",
+      app_identifier: APP_IDENTIFIER,
       platform: "ios",
       api_key: api_key_params
     )
 
     # 2.5 把 sigh 真实生成的 profile 名写回 Xcode 工程
-    #     解决: 门户里干净名字 "com.carolqin.timetreehole AppStore" 被孤儿 profile 占用,
-    #     sigh 被迫生成带时间戳的名字(如 "...AppStore 1786272031"), 与 project.yml 写死的
-    #     PROVISIONING_PROFILE_SPECIFIER 不匹配导致 gym archive 报 "No profile ... found"。
-    #     这里用 SIGH_NAME 环境变量(由 sigh 设置)动态覆盖 Release 配置的 specifier, 一劳永逸。
+    #     解决: project.yml 里写死的 PROVISIONING_PROFILE_SPECIFIER 与 sigh 实际
+    #     生成的名字不一致导致 gym archive 报 "No profile ... found"。
+    #     用 SIGH_NAME 环境变量(由 sigh 设置)动态覆盖 Release 配置的 specifier。
     update_code_signing_settings(
       path: "TimeTreehole/TimeTreehole.xcodeproj",
       use_automatic_signing: false,
@@ -103,22 +165,7 @@ platform :ios do
       clean: true
     )
 
-    # 4. 上传到 TestFlight
-    #    手动定位 transporter 目录, 规避 Xcode 26 下 fastlane 探测失败
-    #    (FASTLANE_ITUNES_TRANSPORTER_PATH 必须是目录, 否则 Dir.chdir 报 ENOTDIR)
-    t = find_transporter
-    if t
-      ENV["FASTLANE_ITUNES_TRANSPORTER_PATH"] = t[:dir]
-      if t[:use_shell]
-        ENV["FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT"] = "1"
-      else
-        ENV.delete("FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT")
-      end
-      UI.message("✅ 使用 transporter 目录: #{t[:dir]} (shell 脚本=#{t[:use_shell]})")
-    else
-      UI.important("⚠️ 未能定位 iTMSTransporter 目录, 上传步骤可能失败 (可尝试在 codemagic.yaml 将 xcode 固定为稳定版)")
-    end
-
+    # 4. 上传到 TestFlight (走 altool, 不要碰 transporter 环境变量)
     upload_to_testflight(
       api_key: api_key_params,
       ipa: "build/TimeTreehole.ipa",
