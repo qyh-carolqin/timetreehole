@@ -307,7 +307,7 @@ final class IAPManager: ObservableObject {
               FileManager.default.fileExists(atPath: receiptURL.path) else {
             // 尝试刷新收据
             do {
-                _ = try await AppStore.sync()
+                _ = try await StoreKit.AppStore.sync()
                 // 刷新后重试
                 guard let url = Bundle.main.appStoreReceiptURL,
                       FileManager.default.fileExists(atPath: url.path) else {

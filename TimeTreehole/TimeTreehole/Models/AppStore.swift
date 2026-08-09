@@ -106,11 +106,15 @@ class AppStore: ObservableObject {
             queue: .main
         ) { [weak self] notification in
             guard let self = self else { return }
-            if let credits = notification.userInfo?["credits"] as? Int {
-                self.credits = credits
-            }
-            if let added = notification.userInfo?["added"] as? Int, added > 0 {
-                self.showToast("充值成功！获得 \(added) 灵叶 🍃")
+            let credits = notification.userInfo?["credits"] as? Int
+            let added = notification.userInfo?["added"] as? Int
+            Task { @MainActor in
+                if let credits {
+                    self.credits = credits
+                }
+                if let added, added > 0 {
+                    self.showToast("充值成功！获得 \(added) 灵叶 🍃")
+                }
             }
         }
     }
@@ -337,7 +341,7 @@ class AppStore: ObservableObject {
     func rechargeCredits(packageId: String) async {
         do {
             let result = try await api.recharge(packageId: packageId)
-            if result.success ?? false {
+            if result.success {
                 credits = result.totalCredits ?? credits
                 showToast("充值成功！获得 \(result.addedCredits ?? 0) 灵叶 🍃")
             } else {
@@ -419,13 +423,13 @@ class AppStore: ObservableObject {
 
                 let seed = VoiceSeed(
                     id: UUID(),
-                    serverUUID: result.uuid,
                     title: title.isEmpty ? "语音种子" : title,
                     duration: recorder.elapsedTime,
                     privacy: privacy,
                     replyCount: 0,
                     createdAt: Date(),
-                    audioURL: localURL
+                    audioURL: localURL,
+                    serverUUID: result.uuid
                 )
 
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
@@ -510,7 +514,7 @@ class AppStore: ObservableObject {
         if !FileManager.default.fileExists(atPath: url.path), let serverUUID = seed.serverUUID {
             Task {
                 do {
-                    let data = try await api.downloadAudio(serverUUID)
+                    let data = try await api.downloadAudio(uuid: serverUUID)
                     try? data.write(to: url)
                     playLocalFile(at: url)
                 } catch {

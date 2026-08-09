@@ -91,7 +91,7 @@ final class APIClient {
     /// 匿名回复（语音评论）
     func replyToSeed(seedUUID: String, audioData: Data) async throws -> Bool {
         let fileName = "reply-\(Int(Date().timeIntervalSince1970)).m4a"
-        let response: APISuccessResponse = try await network.upload(
+        let response: UploadResponse = try await network.upload(
             path: "/api/treehole/\(seedUUID)/reply",
             fileData: audioData,
             fileName: fileName
@@ -254,13 +254,13 @@ struct VoiceSeedDTO: Decodable {
     func toModel() -> VoiceSeed {
         VoiceSeed(
             id: UUID(uuidString: uuid) ?? UUID(),
-            serverUUID: uuid,
             title: title,
             duration: duration ?? 0,
             privacy: (privacy == "public") ? .public : .private,
             replyCount: replyCount ?? 0,
             createdAt: parseDate(createdAt),
-            audioURL: URL(string: "\(NetworkManager.shared.baseURL)/api/seeds/\(uuid)/audio")
+            audioURL: URL(string: "\(NetworkManager.shared.baseURL)/api/seeds/\(uuid)/audio"),
+            serverUUID: uuid
         )
     }
 
@@ -284,13 +284,13 @@ struct NotificationDTO: Decodable {
     func toModel() -> TreeholeNotification {
         TreeholeNotification(
             id: UUID(),
-            serverId: id,
             type: (type == "growth") ? .growth : .reply,
             title: title ?? "",
             subtitle: subtitle ?? "",
             relatedSeedTitle: relatedSeedTitle ?? "",
             createdAt: parseDate(createdAt),
-            isRead: (isRead ?? 0) == 1
+            isRead: (isRead ?? 0) == 1,
+            serverId: id
         )
     }
 

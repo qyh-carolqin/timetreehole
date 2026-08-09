@@ -28,7 +28,7 @@ final class AudioPlayer: NSObject, ObservableObject {
     private var player: AVAudioPlayer?
     private var progressTimer: Timer?
     private var levelTimer: Timer?
-    private var currentURL: URL?
+    var currentURL: URL?
 
     // MARK: - 状态枚举
 

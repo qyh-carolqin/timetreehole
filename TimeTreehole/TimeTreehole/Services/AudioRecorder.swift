@@ -93,7 +93,7 @@ final class AudioRecorder: NSObject, ObservableObject {
         // 音频会话配置
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             status = .error("音频会话初始化失败: \(error.localizedDescription)")

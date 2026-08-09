@@ -216,7 +216,7 @@ enum APIError: LocalizedError, Equatable {
         case .fileTooLarge:          return "音频文件过大（不超过 20MB）"
         case .rateLimited:           return "请求过于频繁，请稍后再试"
         case .serverError(let msg):  return msg
-        case .httpError(let code):   return "服务器响应异常 (\(code))"
+        case .httpError(let code, _):   return "服务器响应异常 (\(code))"
         case .unknown:               return "未知错误"
         }
     }
