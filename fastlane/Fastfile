@@ -14,7 +14,9 @@ def api_key_params
     key_id: ENV["APP_STORE_CONNECT_KEY_IDENTIFIER"],
     issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
     key: ENV["APP_STORE_CONNECT_KEY"],
-    key_content: ENV["APP_STORE_CONNECT_KEY"]
+    key_content: ENV["APP_STORE_CONNECT_KEY"],
+    # 普通 App Store 团队 (非企业版) — 不设置 cert 会无法判断团队类型而崩溃
+    in_house: false
   }
 end
 

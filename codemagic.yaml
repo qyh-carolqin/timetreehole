@@ -36,13 +36,6 @@ workflows:
           cd TimeTreehole
           xcodegen generate
 
-      - name: 调试 - 检查签名变量是否注入
-        script: |
-          echo "KEY_ID=${APP_STORE_CONNECT_KEY_IDENTIFIER:-<未设置>}"
-          echo "ISSUER=${APP_STORE_CONNECT_ISSUER_ID:-<未设置>}"
-          echo "TEAM=${DEVELOPMENT_TEAM_ID:-<未设置>}"
-          if [ -n "$APP_STORE_CONNECT_KEY" ]; then echo "APP_STORE_CONNECT_KEY=已设置"; else echo "APP_STORE_CONNECT_KEY=未设置"; fi
-
       - name: Fastlane 构建并上传 TestFlight
         script: |
           bundle exec fastlane ios beta
