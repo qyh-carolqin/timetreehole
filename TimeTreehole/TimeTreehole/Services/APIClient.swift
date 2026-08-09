@@ -259,7 +259,7 @@ struct VoiceSeedDTO: Decodable {
             privacy: (privacy == "public") ? .public : .private,
             replyCount: replyCount ?? 0,
             createdAt: parseDate(createdAt),
-            audioURL: URL(string: "\(NetworkManager.shared.baseURL)/api/seeds/\(uuid)/audio"),
+            audioURL: URL(string: "\(APIConfig.baseURL)/api/seeds/\(uuid)/audio"),
             serverUUID: uuid
         )
     }

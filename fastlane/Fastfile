@@ -39,6 +39,20 @@ platform :ios do
       api_key: api_key_params
     )
 
+    # 2.5 把 sigh 真实生成的 profile 名写回 Xcode 工程
+    #     解决: 门户里干净名字 "com.carolqin.timetreehole AppStore" 被孤儿 profile 占用,
+    #     sigh 被迫生成带时间戳的名字(如 "...AppStore 1786272031"), 与 project.yml 写死的
+    #     PROVISIONING_PROFILE_SPECIFIER 不匹配导致 gym archive 报 "No profile ... found"。
+    #     这里用 SIGH_NAME 环境变量(由 sigh 设置)动态覆盖 Release 配置的 specifier, 一劳永逸。
+    update_code_signing_settings(
+      path: "TimeTreehole/TimeTreehole.xcodeproj",
+      use_automatic_signing: false,
+      profile_name: ENV["SIGH_NAME"],
+      code_sign_identity: "Apple Distribution",
+      targets: ["TimeTreehole"],
+      build_configurations: ["Release"]
+    )
+
     # 3. 编译构建
     gym(
       project: "TimeTreehole/TimeTreehole.xcodeproj",

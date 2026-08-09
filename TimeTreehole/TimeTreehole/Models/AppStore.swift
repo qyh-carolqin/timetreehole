@@ -451,7 +451,7 @@ class AppStore: ObservableObject {
                 }
 
             } catch let error as APIError {
-                if case .httpError(let code, let body) = error, code == 402 {
+                if case .httpError(let code, _) = error, code == 402 {
                     // 402 → 额度不足，引导充值
                     showToast("灵叶不足！前往商店充值 →")
                     showStore = true

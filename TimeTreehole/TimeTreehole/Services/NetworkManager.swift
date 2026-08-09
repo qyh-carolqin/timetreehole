@@ -10,12 +10,8 @@ final class NetworkManager: @unchecked Sendable {
 
     // MARK: - 配置
 
-    /// 后端 API 基础地址（部署后替换为实际域名）
-    #if DEBUG
-    let baseURL = "http://localhost:3000"
-    #else
-    let baseURL = "https://api.timetreehole.com"  // 上线后替换
-    #endif
+    /// 后端 API 基础地址（唯一真源: APIConfig，勿在此重复硬编码）
+    let baseURL = APIConfig.baseURL
 
     /// 设备唯一标识（匿名用户认证）
     private let deviceIdKey = "com.timetreehole.deviceId"
