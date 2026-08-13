@@ -565,6 +565,52 @@ class AppStore: ObservableObject {
         }
     }
 
+    // MARK: - 修改种子私密/公域属性
+
+    /// 切换种子的私密/公域属性
+    /// - 私密 → 公域：重新走上传配额（扣 10 灵叶 或 用每日免费额度），失败引导充值
+    /// - 公域 → 私密：直接改，不退回灵叶
+    func setSeedPrivacy(seed: VoiceSeed, privacy: VoicePrivacy) async {
+        guard let uuid = seed.serverUUID else {
+            showToast("该种子尚未上传，无法修改属性")
+            return
+        }
+
+        // 属性未变化
+        if seed.privacy == privacy { return }
+
+        do {
+            let result = try await api.updateSeedPrivacy(uuid: uuid, privacy: privacy)
+
+            if result.success {
+                // 更新本地列表中的该种子属性
+                if let idx = mySeeds.firstIndex(where: { $0.id == seed.id }) {
+                    mySeeds[idx].privacy = privacy
+                }
+                // 私密→公域可能扣了灵叶，刷新余额与配额
+                await fetchQuota()
+
+                if let msg = result.message, !msg.isEmpty {
+                    showToast(msg)
+                } else {
+                    showToast(privacy == .public ? "种子已发布到公共域 🌿" : "已收回为私密种子 🔒")
+                }
+            } else {
+                showToast(result.message ?? "修改失败，请稍后再试")
+            }
+        } catch let error as APIError {
+            if case .httpError(let code, _) = error, code == 402 {
+                // 额度不足，引导充值
+                showToast("灵叶不足！前往商店充值 →")
+                showStore = true
+            } else {
+                showToast("修改失败，请稍后再试")
+            }
+        } catch {
+            showToast("网络不可用，修改失败")
+        }
+    }
+
     // MARK: - 树洞（公共域）
 
     /// 随机获取一颗种子（含额度检查）

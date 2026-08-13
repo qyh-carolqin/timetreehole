@@ -9,6 +9,7 @@ struct VoiceListItem: View {
     let seed: VoiceSeed
     let onDelete: () -> Void
     @State private var showDeleteConfirm = false
+    @State private var showPublishConfirm = false
 
     private var isCurrentPlaying: Bool {
         guard let url = seed.audioURL else { return false }
@@ -84,6 +85,26 @@ struct VoiceListItem: View {
                 }
             }
 
+            // 切换私密/公域按钮
+            Button(action: {
+                if seed.privacy == .private {
+                    // 私密 → 公域：需二次确认（会扣上传额度）
+                    showPublishConfirm = true
+                } else {
+                    // 公域 → 私密：直接收回，不退回灵叶
+                    Task { await store.setSeedPrivacy(seed: seed, privacy: .private) }
+                }
+            }) {
+                Image(systemName: seed.privacy == .private ? "globe" : "lock.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(
+                        seed.privacy == .private
+                            ? TreeholeColors.accentPrimary.opacity(0.8)
+                            : TreeholeColors.accentSecondary.opacity(0.8)
+                    )
+                    .frame(width: 24, height: 24)
+            }
+
             // 删除按钮
             Button(action: { showDeleteConfirm = true }) {
                 Image(systemName: "trash")
@@ -110,6 +131,14 @@ struct VoiceListItem: View {
             Button("删除", role: .destructive) { onDelete() }
         } message: {
             Text("「\(seed.title)」将被永久删除，无法恢复。")
+        }
+        .alert("发布到公共域？", isPresented: $showPublishConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("发布") {
+                Task { await store.setSeedPrivacy(seed: seed, privacy: .public) }
+            }
+        } message: {
+            Text("私密种子发布到公共域将消耗 10 灵叶（或每日 1 次免费上传额度）。")
         }
     }
 }

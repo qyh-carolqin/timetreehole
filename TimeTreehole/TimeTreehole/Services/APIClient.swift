@@ -67,6 +67,14 @@ final class APIClient {
         try await network.requestVoid("/api/seeds/\(uuid)", method: "DELETE")
     }
 
+    /// 修改种子的私密/公域属性
+    /// - privacy: .public 表示发布到公共域（私密→公域会重新扣上传额度），.private 表示收回为私密
+    func updateSeedPrivacy(uuid: String, privacy: VoicePrivacy) async throws -> SeedPrivacyResult {
+        struct Body: Encodable { let privacy: String }
+        let body = Body(privacy: privacy.apiValue)
+        return try await network.request("/api/seeds/\(uuid)/privacy", method: "PATCH", body: body)
+    }
+
     // ============================================================
     // MARK: — 树洞（公共域）
     // ============================================================
@@ -354,6 +362,15 @@ struct SeedUploadResult {
     let audioUrl: URL
     let creditsUsed: Int?
     let remainingFree: Int?
+}
+
+struct SeedPrivacyResult: Decodable {
+    let success: Bool
+    let privacy: String?
+    let changed: Bool?
+    let creditsUsed: Int?
+    let remainingFree: Int?
+    let message: String?
 }
 
 // MARK: - VoicePrivacy API 值
