@@ -15,7 +15,7 @@ const router = express.Router();
 // Apple App Store 收据验证配置
 // ============================================================
 
-const APP_BUNDLE_ID = 'com.timetreehole.app';
+const APP_BUNDLE_ID = 'com.carolqin.timetreehole';
 const APPLE_SHARED_SECRET = process.env.APPLE_SHARED_SECRET || '';
 
 const APPLE_VERIFY_URLS = {

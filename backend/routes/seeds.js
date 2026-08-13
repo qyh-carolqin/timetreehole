@@ -10,6 +10,7 @@ const {
     getSeedsByUserId,
     deleteSeedByUuid,
     incrementReplyCount,
+    updateSeedPrivacy,
     checkAndConsumeQuota,
 } = require('../db');
 
@@ -249,6 +250,87 @@ router.delete('/:uuid', (req, res) => {
     } catch (err) {
         console.error('[Seeds] 删除失败:', err);
         res.status(500).json({ error: 'delete_failed' });
+    }
+});
+
+// ============================================================
+// PATCH /api/seeds/:uuid/privacy — 修改种子私密/公域属性
+// ============================================================
+
+router.patch('/:uuid/privacy', (req, res) => {
+    try {
+        const { privacy } = req.body;
+        if (privacy !== 'private' && privacy !== 'public') {
+            return res.status(400).json({
+                error: 'invalid_privacy',
+                message: 'privacy 必须是 private 或 public',
+            });
+        }
+
+        const seed = getSeedByUuid.get(req.params.uuid);
+        if (!seed) {
+            return res.status(404).json({ error: 'not_found', message: '种子不存在' });
+        }
+
+        // 只能修改自己的种子
+        if (seed.user_id !== req.user.id) {
+            return res.status(403).json({ error: 'forbidden', message: '只能修改自己的种子' });
+        }
+
+        const currentPrivacy = seed.privacy;
+        const targetPrivacy = privacy;
+
+        // 属性未变化
+        if (currentPrivacy === targetPrivacy) {
+            return res.json({
+                success: true,
+                privacy: targetPrivacy,
+                changed: false,
+                creditsUsed: 0,
+            });
+        }
+
+        // 公域 → 私密：直接改，不退回灵叶
+        if (currentPrivacy === 'public' && targetPrivacy === 'private') {
+            updateSeedPrivacy.run('private', req.params.uuid, req.user.id);
+            return res.json({
+                success: true,
+                privacy: 'private',
+                changed: true,
+                creditsUsed: 0,
+                message: '已收回为私密种子',
+            });
+        }
+
+        // 私密 → 公域：重新走上传配额（扣 10 灵叶 或 用每日免费额度）
+        if (currentPrivacy === 'private' && targetPrivacy === 'public') {
+            const quotaResult = checkAndConsumeQuota(req.user.id, 'upload');
+            if (!quotaResult.allowed) {
+                return res.status(402).json({
+                    error: 'quota_exceeded',
+                    message: quotaResult.message,
+                    creditsNeeded: quotaResult.creditsNeeded,
+                    userCredits: quotaResult.userCredits,
+                });
+            }
+
+            updateSeedPrivacy.run('public', req.params.uuid, req.user.id);
+            return res.json({
+                success: true,
+                privacy: 'public',
+                changed: true,
+                creditsUsed: quotaResult.creditsUsed,
+                remainingFree: quotaResult.remainingFree,
+                message: quotaResult.creditsUsed > 0
+                    ? `种子已发布到公共域，消耗 ${quotaResult.creditsUsed} 灵叶`
+                    : '种子已发布到公共域',
+            });
+        }
+
+        return res.json({ success: true, privacy: targetPrivacy, changed: false });
+    } catch (err) {
+        console.error('[Seeds] 修改隐私失败:', err);
+        res.status(500).json({ error: 'update_failed', message: '隐私修改失败' });
     }
 });
 

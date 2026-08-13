@@ -389,6 +389,10 @@ const incrementReplyCount = db.prepare(`
     UPDATE seeds SET reply_count = reply_count + 1 WHERE uuid = ?
 `);
 
+const updateSeedPrivacy = db.prepare(`
+    UPDATE seeds SET privacy = ? WHERE uuid = ? AND user_id = ?
+`);
+
 // ============================================================
 // Prepared Statements — Treehole (公共树洞)
 // ============================================================
@@ -475,13 +479,16 @@ const countUnreadNotifications = db.prepare(`
 // Prepared Statements — 配额与额度
 // ============================================================
 
+// 注意：用 date('now', '+8 hours') 按「中国时区(UTC+8)」划分每日，
+// 保证每日免费额度在中国 0:00 重置（而非 UTC 0:00 = 中国 8:00）。
+// 中国无夏令时，+8 小时即可长期稳定对齐。
 const getTodayUsage = db.prepare(`
-    SELECT * FROM daily_usage WHERE user_id = ? AND date = date('now')
+    SELECT * FROM daily_usage WHERE user_id = ? AND date = date('now', '+8 hours')
 `);
 
 const upsertDailyUsage = db.prepare(`
     INSERT INTO daily_usage (user_id, date, public_uploads, public_retrievals)
-    VALUES (?, date('now'), ?, ?)
+    VALUES (?, date('now', '+8 hours'), ?, ?)
     ON CONFLICT(user_id, date) DO UPDATE SET
         public_uploads    = public_uploads    + excluded.public_uploads,
         public_retrievals = public_retrievals + excluded.public_retrievals
@@ -613,6 +620,7 @@ module.exports = {
     getSeedsByUserId,
     deleteSeedByUuid,
     incrementReplyCount,
+    updateSeedPrivacy,
 
     // Treehole
     randomPublicSeed,
