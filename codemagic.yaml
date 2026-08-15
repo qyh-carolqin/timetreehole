@@ -33,8 +33,7 @@ workflows:
 
       - name: 生成 Xcode 工程
         script: |
-          cd TimeTreehole
-          xcodegen generate
+          xcodegen generate --spec TimeTreehole/project.yml --project TimeTreehole/TimeTreehole.xcodeproj
 
       - name: Fastlane 构建并上传 TestFlight
         script: |

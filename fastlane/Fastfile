@@ -143,8 +143,22 @@ platform :ios do
     #     解决: project.yml 里写死的 PROVISIONING_PROFILE_SPECIFIER 与 sigh 实际
     #     生成的名字不一致导致 gym archive 报 "No profile ... found"。
     #     用 SIGH_NAME 环境变量(由 sigh 设置)动态覆盖 Release 配置的 specifier。
+    #
+    #     关键: .xcodeproj 由 XcodeGen 生成、不纳入 git。必须确保它存在后才能
+    #     写签名设置 / 改构建号, 否则 sed / update_code_signing_settings 会报
+    #     “No such file or directory”。这里先定位(必要时生成)工程, 并统一使用
+    #     动态解析出的路径, 避免路径写死导致的失败。
+    derived_project = "TimeTreehole/TimeTreehole.xcodeproj"
+    unless File.exist?("#{derived_project}/project.pbxproj")
+      UI.important("⚠️  未找到 #{derived_project}，先执行 xcodegen generate 生成工程")
+      sh "xcodegen generate --spec TimeTreehole/project.yml --project #{derived_project}"
+    end
+    pbxproj = Dir.glob("**/TimeTreehole.xcodeproj/project.pbxproj").first
+    UI.user_error!("❌ 找不到 TimeTreehole.xcodeproj/project.pbxproj，无法继续构建") unless pbxproj
+    derived_project = File.dirname(pbxproj)
+
     update_code_signing_settings(
-      path: "TimeTreehole/TimeTreehole.xcodeproj",
+      path: derived_project,
       use_automatic_signing: false,
       profile_name: ENV["SIGH_NAME"],
       code_sign_identity: "Apple Distribution",
@@ -153,17 +167,17 @@ platform :ios do
     )
 
     # 2.7 递增构建号 (CFBundleVersion), 避免与 Apple 已上传的 build 冲突
-    #     Info.plist 的 CFBundleVersion 引用 $(CURRENT_PROJECT_VERSION);
-    #     Codemagic 每次 xcodegen generate 会把该值重置为 1, 这里在 gym 之前动态写入新值。
+    #     Info.plist 的 CFBundleVersion 引用 $(CURRENT_PROJECT_VERSION)；
+    #     XcodeGen 每次 generate 会把该值重置为 1, 这里在 gym 之前动态写入新值。
     #     优先用 Codemagic 全局递增的 BUILD_NUMBER; 缺失或过小时用基于日期的递增数兜底。
     new_build = ENV["BUILD_NUMBER"].to_s
     new_build = (new_build.to_i > 1) ? new_build : Time.now.strftime("%y%m%d%H%M")
-    sh %Q{sed -i '' -E 's/(CURRENT_PROJECT_VERSION = ?)"?[0-9]+;"?/\\1#{new_build};/g' TimeTreehole/TimeTreehole.xcodeproj/project.pbxproj}
-    UI.message("🔢 构建号 (CFBundleVersion) 设置为 #{new_build}")
+    sh %Q{sed -i '' -E 's/(CURRENT_PROJECT_VERSION = ?)"?[0-9]+;"?/\\1#{new_build};/g' "#{pbxproj}"}
+    UI.message("🔢 构建号 (CFBundleVersion) 设置为 #{new_build} (文件: #{pbxproj})")
 
     # 3. 编译构建
     gym(
-      project: "TimeTreehole/TimeTreehole.xcodeproj",
+      project: derived_project,
       scheme: "TimeTreehole",
       configuration: "Release",
       export_method: "app-store",
