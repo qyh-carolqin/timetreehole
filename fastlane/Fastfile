@@ -119,10 +119,10 @@ platform :ios do
 
   desc "构建并上传 TestFlight"
   lane :beta do
-    # ⚠️ 关键: fastlane 的 sh 默认 cwd 是 fastlane/ 目录, 而工程源码/生成都在仓库根。
-    # 所有相对路径(TimeTreehole/...)都会错位 —— 这曾导致最初的 sed “No such file”
-    # 以及本层 xcodegen fallback 找不到 spec。先切到仓库根目录, 统一基准。
-    Dir.chdir(File.expand_path("..", File.dirname(File.expand_path(__FILE__))))
+    # ⚠️ 关键: fastlane 的 sh/action 默认 cwd 是 fastlane/ 目录(且部分 action 会重置 cwd),
+    # 而工程源码/生成都在仓库根。所有路径一律用“仓库根拼绝对路径”, 不依赖 cwd。
+    repo_root = File.expand_path("..", File.dirname(File.expand_path(__FILE__)))
+    Dir.chdir(repo_root)
 
     force_altool_transporter!
 
@@ -151,15 +151,15 @@ platform :ios do
     #
     #     关键: .xcodeproj 由 XcodeGen 生成、不纳入 git。必须确保它存在后才能
     #     写签名设置 / 改构建号, 否则 sed / update_code_signing_settings 会报
-    #     “No such file or directory”。这里先定位(必要时生成)工程, 并统一使用
-    #     动态解析出的路径, 避免路径写死导致的失败。
-    derived_project = "TimeTreehole/TimeTreehole.xcodeproj"
-    unless File.exist?("#{derived_project}/project.pbxproj")
+    #     “No such file or directory”。这里用绝对路径定位(必要时生成)工程,
+    #     避免 fastlane cwd 错位导致的路径错误。
+    derived_project = File.join(repo_root, "TimeTreehole/TimeTreehole.xcodeproj")
+    unless File.exist?(File.join(derived_project, "project.pbxproj"))
       UI.important("⚠️  未找到 #{derived_project}，先执行 xcodegen generate 生成工程")
       # --project 传“父目录”而非完整 .xcodeproj 路径 (xcodegen 会追加 <name>.xcodeproj)
-      sh "xcodegen generate --spec TimeTreehole/project.yml --project #{File.dirname(derived_project)}"
+      sh "xcodegen generate --spec #{File.join(repo_root, 'TimeTreehole/project.yml')} --project #{File.dirname(derived_project)}"
     end
-    pbxproj = Dir.glob("**/TimeTreehole.xcodeproj/project.pbxproj").first
+    pbxproj = Dir.glob(File.join(repo_root, "**/TimeTreehole.xcodeproj/project.pbxproj")).first
     UI.user_error!("❌ 找不到 TimeTreehole.xcodeproj/project.pbxproj，无法继续构建") unless pbxproj
     derived_project = File.dirname(pbxproj)
 
@@ -189,7 +189,7 @@ platform :ios do
       export_method: "app-store",
       include_symbols: true,
       include_bitcode: false,
-      output_directory: "build",
+      output_directory: File.join(repo_root, "build"),
       output_name: "TimeTreehole.ipa",
       clean: true
     )
@@ -197,7 +197,7 @@ platform :ios do
     # 4. 上传到 TestFlight (走 altool, 不要碰 transporter 环境变量)
     upload_to_testflight(
       api_key: api_key_params,
-      ipa: "build/TimeTreehole.ipa",
+      ipa: File.join(repo_root, "build/TimeTreehole.ipa"),
       skip_waiting_for_build_processing: true,
       skip_submission: true
     )
