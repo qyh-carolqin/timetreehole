@@ -151,7 +151,8 @@ platform :ios do
     derived_project = "TimeTreehole/TimeTreehole.xcodeproj"
     unless File.exist?("#{derived_project}/project.pbxproj")
       UI.important("⚠️  未找到 #{derived_project}，先执行 xcodegen generate 生成工程")
-      sh "xcodegen generate --spec TimeTreehole/project.yml --project #{derived_project}"
+      # --project 传“父目录”而非完整 .xcodeproj 路径 (xcodegen 会追加 <name>.xcodeproj)
+      sh "xcodegen generate --spec TimeTreehole/project.yml --project #{File.dirname(derived_project)}"
     end
     pbxproj = Dir.glob("**/TimeTreehole.xcodeproj/project.pbxproj").first
     UI.user_error!("❌ 找不到 TimeTreehole.xcodeproj/project.pbxproj，无法继续构建") unless pbxproj

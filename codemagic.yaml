@@ -33,7 +33,10 @@ workflows:
 
       - name: 生成 Xcode 工程
         script: |
-          xcodegen generate --spec TimeTreehole/project.yml --project TimeTreehole/TimeTreehole.xcodeproj
+          # 注意: xcodegen 的 --project 是“父目录”，它会自动追加 <name>.xcodeproj
+          # (即 project.yml 里的 name: TimeTreehole)。传 TimeTreehole/TimeTreehole.xcodeproj
+          # 会被当成目录再套一层导致嵌套失败。所以这里只传父目录 TimeTreehole。
+          xcodegen generate --spec TimeTreehole/project.yml --project TimeTreehole
 
       - name: Fastlane 构建并上传 TestFlight
         script: |
