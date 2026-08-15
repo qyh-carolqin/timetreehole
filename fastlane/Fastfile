@@ -152,6 +152,15 @@ platform :ios do
       build_configurations: ["Release"]
     )
 
+    # 2.7 递增构建号 (CFBundleVersion), 避免与 Apple 已上传的 build 冲突
+    #     Info.plist 的 CFBundleVersion 引用 $(CURRENT_PROJECT_VERSION);
+    #     Codemagic 每次 xcodegen generate 会把该值重置为 1, 这里在 gym 之前动态写入新值。
+    #     优先用 Codemagic 全局递增的 BUILD_NUMBER; 缺失或过小时用基于日期的递增数兜底。
+    new_build = ENV["BUILD_NUMBER"].to_s
+    new_build = (new_build.to_i > 1) ? new_build : Time.now.strftime("%y%m%d%H%M")
+    sh %Q{sed -i '' -E 's/(CURRENT_PROJECT_VERSION = ?)"?[0-9]+;"?/\\1#{new_build};/g' TimeTreehole/TimeTreehole.xcodeproj/project.pbxproj}
+    UI.message("🔢 构建号 (CFBundleVersion) 设置为 #{new_build}")
+
     # 3. 编译构建
     gym(
       project: "TimeTreehole/TimeTreehole.xcodeproj",
