@@ -20,8 +20,6 @@
     <string>1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
-    <key>APIBaseURL</key>
-    <string></string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <!-- 启动屏 · iOS 14+ 声明式方案，无需 storyboard（避免 CI 上 ibtool 编译失败） -->

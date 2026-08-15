@@ -15,15 +15,9 @@ enum APIConfig {
     #if DEBUG
     static let baseURL = "http://localhost:3000"
     #else
-    // 内测/生产后端地址：从 Info.plist 的 APIBaseURL 读取，便于构建时注入，
-    // 避免硬编码。当前采用「本地后端 + 内网穿透」方案（无需境外信用卡）。
-    // 若未配置则回退到占位地址，启动时会因连不上后端而报错。
-    static let baseURL: String = {
-        if let url = Bundle.main.infoDictionary?["APIBaseURL"] as? String, !url.isEmpty {
-            return url
-        }
-        return "https://REPLACE-WITH-TUNNEL-URL"
-    }()
+    // 内测/生产后端地址：Railway 免费层 (自动 HTTPS, 无需境外信用卡)
+    // 后端实际部署在 Railway，UptimeRobot 每 5 分钟 ping /api/health 保活。
+    static let baseURL = "https://timetreehole-api-production-f42f.up.railway.app"
     #endif
 
     /// 当前运行环境
