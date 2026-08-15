@@ -119,6 +119,11 @@ platform :ios do
 
   desc "构建并上传 TestFlight"
   lane :beta do
+    # ⚠️ 关键: fastlane 的 sh 默认 cwd 是 fastlane/ 目录, 而工程源码/生成都在仓库根。
+    # 所有相对路径(TimeTreehole/...)都会错位 —— 这曾导致最初的 sed “No such file”
+    # 以及本层 xcodegen fallback 找不到 spec。先切到仓库根目录, 统一基准。
+    Dir.chdir(File.expand_path("..", File.dirname(File.expand_path(__FILE__))))
+
     force_altool_transporter!
 
     # 0. 清理历史签名资产, 释放 Apple 证书配额
