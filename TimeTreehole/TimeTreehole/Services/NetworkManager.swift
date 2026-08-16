@@ -36,12 +36,22 @@ final class NetworkManager: @unchecked Sendable {
 
     // MARK: - 设备 ID 管理
 
-    /// 获取或生成设备 ID（首次启动时创建并持久化）
+    /// 获取或生成设备 ID（匿名用户认证的核心标识）。
+    /// 优先级：Keychain（卸载重装仍保留）→ UserDefaults 旧值迁移 → 新生成并写入 Keychain。
+    /// 这样同一设备反复重装/更新 TestFlight 也能复用同一匿名账号，昵称不会每次都变。
     var deviceId: String {
-        if let existing = UserDefaults.standard.string(forKey: deviceIdKey), !existing.isEmpty {
-            return existing
+        // 1. Keychain 优先
+        if let saved = DeviceIdStore.load(), !saved.isEmpty {
+            return saved
         }
+        // 2. 兼容旧版本：从 UserDefaults 迁移（覆盖升级不重装时保留原账号）
+        if let legacy = UserDefaults.standard.string(forKey: deviceIdKey), !legacy.isEmpty {
+            DeviceIdStore.save(legacy)
+            return legacy
+        }
+        // 3. 全新生成并持久化到 Keychain
         let newId = "ios-" + UUID().uuidString.lowercased()
+        DeviceIdStore.save(newId)
         UserDefaults.standard.set(newId, forKey: deviceIdKey)
         return newId
     }
