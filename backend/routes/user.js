@@ -25,9 +25,18 @@ const {
 
 /// 格式化用户资料返回体（隐藏敏感字段）
 function formatProfile(user) {
-    // 防御性兜底：若 recovery_code 为空，立即生成并落库。
-    // 旧版本/异常流程可能留下空 recovery_code，会导致前端恢复码卡片空白。
+    let nickname = user.nickname;
     let recoveryCode = user.recovery_code;
+
+    // 关键修复：昵称/恢复码为空时，立即生成并落库。
+    // 否则每次拉取资料（每次启动/登录）都会生成全新随机昵称，
+    // 表现为"每次登录名字都变一个随机的"。落库后后续请求返回稳定值。
+    // 注意：仅当确实为空才写入，已存在的值绝不覆盖，避免改掉用户自定义昵称。
+    if (!nickname) {
+        nickname = generateNickname();
+        try { updateUserProfile.run(nickname, null, null, user.id); } catch (_) { /* 静默 */ }
+    }
+
     if (!recoveryCode) {
         let attempts = 0;
         while (attempts < 5) {
@@ -48,7 +57,7 @@ function formatProfile(user) {
 
     return {
         id: user.id,
-        nickname: user.nickname || generateNickname(),
+        nickname: nickname || '',
         avatarColor: user.avatar_color ?? 0,
         bio: user.bio || '',
         recoveryCode: recoveryCode || '',
