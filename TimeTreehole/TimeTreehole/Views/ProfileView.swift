@@ -33,6 +33,9 @@ struct ProfileView: View {
                         // 设备列表
                         devicesSection
 
+                        // 账号安全
+                        deleteAccountSection
+
                         // 设置项
                         settingsSection
 
@@ -193,24 +196,47 @@ struct ProfileView: View {
                 Spacer()
             }
 
-            HStack {
-                Text(store.userProfile?.recoveryCode ?? "----")
-                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                    .foregroundColor(TreeholeColors.accentSecondary)
-                    .tracking(2)
+            HStack(spacing: 12) {
+                if let code = store.userProfile?.recoveryCode, !code.isEmpty {
+                    Text(code)
+                        .font(.system(size: 24, weight: .bold, design: .monospaced))
+                        .foregroundColor(TreeholeColors.accentSecondary)
+                        .tracking(2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
 
-                Spacer()
+                    Spacer()
 
-                Button(action: copyRecoveryCode) {
-                    Label("复制", systemImage: "doc.on.doc")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(TreeholeColors.accentPrimary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(TreeholeColors.accentPrimary.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: TreeholeRadius.pill))
+                    Button(action: copyRecoveryCode) {
+                        Label("复制", systemImage: "doc.on.doc")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(TreeholeColors.accentPrimary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(TreeholeColors.accentPrimary.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: TreeholeRadius.pill))
+                    }
+                } else {
+                    Text("恢复码未生成")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(TreeholeColors.textSecondary)
+
+                    Spacer()
+
+                    Button(action: {
+                        Task { await store.fetchUserProfile() }
+                    }) {
+                        Label("重新获取", systemImage: "arrow.clockwise")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(TreeholeColors.accentPrimary)
+                            .clipShape(RoundedRectangle(cornerRadius: TreeholeRadius.pill))
+                    }
                 }
             }
+            .frame(minHeight: 44)
 
             Text("换设备时输入此码可找回账号")
                 .font(.system(size: 11))
@@ -310,6 +336,39 @@ struct ProfileView: View {
         }
     }
 
+    // MARK: - 账号安全（删除账号入口，置于此处便于 Apple 审核员发现）
+
+    private var deleteAccountSection: some View {
+        Button(action: { showDeleteAccountConfirm = true }) {
+            HStack(spacing: 14) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white)
+                    .frame(width: 36, height: 36)
+                    .background(TreeholeColors.statusDanger)
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("删除账号")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(TreeholeColors.textPrimary)
+                    Text("清除所有数据并退出应用")
+                        .font(.system(size: 12))
+                        .foregroundColor(TreeholeColors.textMuted)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14))
+                    .foregroundColor(TreeholeColors.textMuted)
+            }
+            .padding(16)
+            .background(TreeholeColors.bgSurface)
+            .clipShape(RoundedRectangle(cornerRadius: TreeholeRadius.md))
+        }
+    }
+
     // MARK: - 设置项
 
     private var settingsSection: some View {
@@ -324,27 +383,6 @@ struct ProfileView: View {
             settingsRow(icon: "doc.text.fill", title: "用户协议", subtitle: nil) {}
             Divider().background(TreeholeColors.borderSubtle)
             settingsRow(icon: "info.circle.fill", title: "关于时间树洞", subtitle: "v1.0.0") {}
-            Divider().background(TreeholeColors.borderSubtle)
-            Button(action: { showDeleteAccountConfirm = true }) {
-                HStack(spacing: 12) {
-                    Image(systemName: "trash.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(TreeholeColors.statusDanger)
-                        .frame(width: 24)
-
-                    Text("删除账号")
-                        .font(.system(size: 15))
-                        .foregroundColor(TreeholeColors.statusDanger)
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12))
-                        .foregroundColor(TreeholeColors.textMuted)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-            }
         }
         .background(TreeholeColors.bgSurface)
         .clipShape(RoundedRectangle(cornerRadius: TreeholeRadius.md))

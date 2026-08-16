@@ -4,6 +4,7 @@ const router = express.Router();
 const {
     registerUser,
     updateUserProfile,
+    updateUserRecoveryCode,
     getUserByRecoveryCode,
     bindDeviceToUser,
     deleteEmptyUser,
@@ -24,12 +25,33 @@ const {
 
 /// 格式化用户资料返回体（隐藏敏感字段）
 function formatProfile(user) {
+    // 防御性兜底：若 recovery_code 为空，立即生成并落库。
+    // 旧版本/异常流程可能留下空 recovery_code，会导致前端恢复码卡片空白。
+    let recoveryCode = user.recovery_code;
+    if (!recoveryCode) {
+        let attempts = 0;
+        while (attempts < 5) {
+            const candidate = generateRecoveryCode();
+            try {
+                const updated = updateUserRecoveryCode.run(candidate, user.id);
+                if (updated) {
+                    recoveryCode = candidate;
+                    break;
+                }
+            } catch (err) {
+                // 唯一索引冲突（极小概率重复），重试
+                if (!String(err.message).includes('UNIQUE')) throw err;
+            }
+            attempts += 1;
+        }
+    }
+
     return {
         id: user.id,
         nickname: user.nickname || generateNickname(),
         avatarColor: user.avatar_color ?? 0,
         bio: user.bio || '',
-        recoveryCode: user.recovery_code || '',
+        recoveryCode: recoveryCode || '',
         credits: user.credits ?? 0,
         createdAt: user.created_at,
         deviceId: user.device_id?.slice(0, 8) + '****',

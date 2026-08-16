@@ -300,6 +300,15 @@ const updateUserProfile = db.prepare(`
     RETURNING *
 `);
 
+/// 单独更新恢复码（用于空码兜底修复）
+const updateUserRecoveryCode = db.prepare(`
+    UPDATE users
+    SET recovery_code = ?,
+        updated_at    = datetime('now')
+    WHERE id = ?
+    RETURNING *
+`);
+
 /// 按恢复码查用户（用于设备迁移/恢复）
 const getUserByRecoveryCode = db.prepare(`
     SELECT * FROM users WHERE recovery_code = ?
@@ -796,6 +805,7 @@ module.exports = {
     // 用户资料 & 设备管理
     registerUser,
     updateUserProfile,
+    updateUserRecoveryCode,
     getUserByRecoveryCode,
     bindDeviceToUser,
     deleteEmptyUser,
