@@ -246,6 +246,34 @@ final class APIClient {
     func unbindDevice(deviceId: Int) async throws {
         try await network.requestVoid("/api/user/devices/\(deviceId)", method: "DELETE")
     }
+
+    // ============================================================
+    // MARK: — 举报 / 屏蔽 / 账号删除
+    // ============================================================
+
+    /// 举报公共树洞中的种子
+    func reportSeed(seedUuid: String, reason: String? = nil) async throws {
+        struct Body: Encodable { let seedUuid: String; let reason: String? }
+        let body = Body(seedUuid: seedUuid, reason: reason)
+        let _: APISuccessResponse = try await network.request("/api/moderation/report", method: "POST", body: body)
+    }
+
+    /// 屏蔽某用户
+    func blockUser(userId: Int) async throws {
+        struct Body: Encodable { let targetUserId: Int }
+        let body = Body(targetUserId: userId)
+        let _: APISuccessResponse = try await network.request("/api/moderation/block", method: "POST", body: body)
+    }
+
+    /// 取消屏蔽
+    func unblockUser(userId: Int) async throws {
+        try await network.requestVoid("/api/moderation/block/\(userId)", method: "DELETE")
+    }
+
+    /// 删除当前账号及全部数据
+    func deleteAccount() async throws {
+        try await network.requestVoid("/api/account", method: "DELETE")
+    }
 }
 
 // MARK: - 数据传输对象 (DTO) · 用于 JSON 解码
@@ -258,6 +286,7 @@ struct VoiceSeedDTO: Decodable {
     let replyCount: Int?
     let createdAt: String?
     let growthStage: String?
+    let authorUserId: Int?
 
     func toModel() -> VoiceSeed {
         VoiceSeed(
@@ -268,7 +297,8 @@ struct VoiceSeedDTO: Decodable {
             replyCount: replyCount ?? 0,
             createdAt: parseDate(createdAt),
             audioURL: URL(string: "\(APIConfig.baseURL)/api/seeds/\(uuid)/audio"),
-            serverUUID: uuid
+            serverUUID: uuid,
+            authorUserId: authorUserId
         )
     }
 

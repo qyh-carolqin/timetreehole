@@ -37,6 +37,9 @@ struct VoiceSeed: Identifiable, Codable {
     /// 服务端 UUID 字符串（用于 API 通信），nil 表示仅本地存在
     var serverUUID: String?
 
+    /// 作者用户 ID（服务端用户 id，用于举报/屏蔽）
+    var authorUserId: Int? = nil
+
     /// 是否已上传到服务器
     var isUploaded: Bool { serverUUID != nil }
 
@@ -77,7 +80,8 @@ struct VoiceSeed: Identifiable, Codable {
             duration: 24,
             privacy: .private,
             replyCount: 0,
-            createdAt: Calendar.current.date(byAdding: .hour, value: -3, to: Date())!
+            createdAt: Calendar.current.date(byAdding: .hour, value: -3, to: Date())!,
+            authorUserId: nil
         ),
         VoiceSeed(
             id: UUID(),
@@ -85,7 +89,8 @@ struct VoiceSeed: Identifiable, Codable {
             duration: 65,
             privacy: .public,
             replyCount: 2,
-            createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+            createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!,
+            authorUserId: nil
         ),
         VoiceSeed(
             id: UUID(),
@@ -93,7 +98,8 @@ struct VoiceSeed: Identifiable, Codable {
             duration: 42,
             privacy: .public,
             replyCount: 5,
-            createdAt: Calendar.current.date(byAdding: .day, value: -3, to: Date())!
+            createdAt: Calendar.current.date(byAdding: .day, value: -3, to: Date())!,
+            authorUserId: nil
         ),
     ]
 }

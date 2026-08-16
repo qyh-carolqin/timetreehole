@@ -32,6 +32,7 @@ const authMiddleware = require('./middleware/auth');
 const seedsRouter     = require('./routes/seeds');
 const treeholeRouter  = require('./routes/treehole');
 const notifRouter     = require('./routes/notifications');
+const moderationRouter = require('./routes/moderation');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,7 +51,7 @@ if (NODE_ENV === 'production') {
 
 app.use(cors({
     origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'X-Device-Id'],
 }));
 
@@ -119,6 +120,8 @@ app.use('/api/notifications', notifRouter);
 app.use('/api/user',          require('./routes/quota'));
 app.use('/api/user',          require('./routes/user'));    // 用户系统：注册/资料/恢复/设备
 app.use('/api/iap',           require('./routes/iap'));     // App Store IAP 收据验证
+app.use('/api/moderation',    moderationRouter);            // 举报 / 屏蔽 / 账号删除
+app.use('/api/account',       moderationRouter);            // DELETE /api/account 别名
 
 // 兼容别名
 app.get('/api/my/seeds', (req, res) => {
@@ -191,6 +194,11 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('     POST   /api/user/recover/confirm 确认恢复(覆盖)');
     console.log('     GET    /api/user/devices         设备列表');
     console.log('     DELETE /api/user/devices/:id     解绑设备');
+    console.log('     POST   /api/moderation/report    举报内容');
+    console.log('     POST   /api/moderation/block     屏蔽用户');
+    console.log('     DELETE /api/moderation/block/:id 取消屏蔽');
+    console.log('     GET    /api/moderation/blocked   屏蔽列表');
+    console.log('     DELETE /api/account              删除账号及全部数据');
     console.log('');
 });
 

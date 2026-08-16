@@ -8,6 +8,7 @@ struct TreeholeView: View {
     @ObservedObject var player = AudioPlayer.shared
 
     @State private var isCommenting = false
+    @State private var showModerationMenu = false
 
     var body: some View {
         ZStack {
@@ -28,11 +29,36 @@ struct TreeholeView: View {
                         // 今日获取配额提示
                         retrievalQuotaBar
 
-                        // 语音卡片（含播放控制）
+                        // 语音卡片（含播放控制 + 举报/屏蔽菜单）
                         if let seed = store.currentRandomSeed {
-                            VoiceCard(seed: seed)
-                                .environmentObject(store)
-                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Spacer()
+                                    Button(action: { showModerationMenu = true }) {
+                                        Image(systemName: "ellipsis")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(TreeholeColors.textSecondary)
+                                            .padding(8)
+                                            .background(TreeholeColors.bgSurface)
+                                            .clipShape(Circle())
+                                    }
+                                }
+
+                                VoiceCard(seed: seed)
+                                    .environmentObject(store)
+                            }
+                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            .confirmationDialog("更多操作", isPresented: $showModerationMenu, titleVisibility: .visible) {
+                                Button("举报该内容", role: .none) {
+                                    Task { await store.reportCurrentSeed(reason: "用户举报") }
+                                }
+                                Button("屏蔽该用户", role: .destructive) {
+                                    Task { await store.blockCurrentSeedAuthor() }
+                                }
+                                Button("取消", role: .cancel) {}
+                            } message: {
+                                Text("如果你认为这条语音违反社区规范，可以选择举报或屏蔽发布者。")
+                            }
                         } else {
                             emptyTreeholeView
                         }

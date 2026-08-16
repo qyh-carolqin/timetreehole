@@ -114,6 +114,36 @@ db.exec(`
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    -- 举报表（UGC 内容审核）
+    CREATE TABLE IF NOT EXISTS reports (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        reporter_user_id INTEGER NOT NULL,
+        target_seed_id  INTEGER,
+        target_user_id  INTEGER,
+        reason          TEXT    NOT NULL DEFAULT '',
+        status          TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','reviewed','dismissed')),
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (reporter_user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (target_seed_id)   REFERENCES seeds(id)   ON DELETE SET NULL,
+        FOREIGN KEY (target_user_id)   REFERENCES users(id)   ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_reports_reporter  ON reports(reporter_user_id);
+    CREATE INDEX IF NOT EXISTS idx_reports_target_seed ON reports(target_seed_id);
+    CREATE INDEX IF NOT EXISTS idx_reports_status    ON reports(status);
+
+    -- 屏蔽表（用户级黑名单）
+    CREATE TABLE IF NOT EXISTS blocks (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id         INTEGER NOT NULL,
+        blocked_user_id INTEGER NOT NULL,
+        created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(user_id, blocked_user_id),
+        FOREIGN KEY (user_id)          REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (blocked_user_id)  REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_blocks_user        ON blocks(user_id);
+    CREATE INDEX IF NOT EXISTS idx_blocks_blocked     ON blocks(blocked_user_id);
+
     -- 索引
     CREATE INDEX IF NOT EXISTS idx_seeds_user_id     ON seeds(user_id);
     CREATE INDEX IF NOT EXISTS idx_seeds_privacy     ON seeds(privacy);
@@ -326,6 +356,49 @@ const getDeviceByDeviceId = db.prepare(`
 `);
 
 // ============================================================
+// Prepared Statements — 举报 & 屏蔽
+// ============================================================
+
+const insertReport = db.prepare(`
+    INSERT INTO reports (reporter_user_id, target_seed_id, target_user_id, reason, status)
+    VALUES (?, ?, ?, ?, 'pending')
+    RETURNING *
+`);
+
+const hasReportedSeed = db.prepare(`
+    SELECT 1 FROM reports
+    WHERE reporter_user_id = ? AND target_seed_id = ?
+    LIMIT 1
+`);
+
+const insertBlock = db.prepare(`
+    INSERT INTO blocks (user_id, blocked_user_id)
+    VALUES (?, ?)
+    ON CONFLICT(user_id, blocked_user_id) DO UPDATE SET created_at = datetime('now')
+    RETURNING *
+`);
+
+const deleteBlock = db.prepare(`
+    DELETE FROM blocks WHERE user_id = ? AND blocked_user_id = ?
+`);
+
+const getBlockedUserIds = db.prepare(`
+    SELECT blocked_user_id FROM blocks WHERE user_id = ?
+`);
+
+const getBlockedUsers = db.prepare(`
+    SELECT b.*, u.device_id, u.nickname, u.avatar_color
+    FROM blocks b
+    JOIN users u ON b.blocked_user_id = u.id
+    WHERE b.user_id = ?
+    ORDER BY b.created_at DESC
+`);
+
+const isBlocked = db.prepare(`
+    SELECT 1 FROM blocks WHERE user_id = ? AND blocked_user_id = ? LIMIT 1
+`);
+
+// ============================================================
 // 用户系统辅助函数
 // ============================================================
 
@@ -356,6 +429,73 @@ function generateNickname() {
     const suffix = NATURE_SUFFIXES[Math.floor(Math.random() * NATURE_SUFFIXES.length)];
     const num = Math.floor(Math.random() * 900 + 100);
     return `${prefix}${suffix}${num}`;
+}
+
+// ============================================================
+// 举报 / 屏蔽 / 账号删除 辅助函数
+// ============================================================
+
+/**
+ * 举报一条公共种子或其作者
+ */
+function reportSeed(reporterId, seedUuid, reason = '') {
+    const seed = getSeedByUuid.get(seedUuid);
+    if (!seed) throw new Error('seed_not_found');
+
+    const existing = hasReportedSeed.get(reporterId, seed.id);
+    if (existing) throw new Error('already_reported');
+
+    return insertReport.get(reporterId, seed.id, seed.user_id, reason || '');
+}
+
+/**
+ * 屏蔽某用户（不再看到其公共种子）
+ */
+function blockUser(userId, targetUserId) {
+    if (userId === targetUserId) throw new Error('cannot_block_self');
+    const target = getUserById.get(targetUserId);
+    if (!target) throw new Error('user_not_found');
+    return insertBlock.get(userId, targetUserId);
+}
+
+/**
+ * 取消屏蔽
+ */
+function unblockUser(userId, targetUserId) {
+    deleteBlock.run(userId, targetUserId);
+    return { success: true };
+}
+
+/**
+ * 删除用户账号及其所有数据（GDPR / Apple 账号删除要求）
+ */
+function deleteAccount(userId) {
+    const userSeeds = getSeedsByUserId.all(userId);
+    const userReplies = db.prepare(`
+        SELECT id, file_path FROM replies WHERE replier_id = ?
+    `).all(userId);
+
+    // 1) 删除该用户种子与回复关联的音频文件
+    const filesToDelete = [
+        ...userSeeds.map(s => s.file_path).filter(Boolean),
+        ...userReplies.map(r => r.file_path).filter(Boolean),
+    ];
+    for (const filePath of filesToDelete) {
+        try {
+            const absolutePath = path.isAbsolute(filePath)
+                ? filePath
+                : path.join(__dirname, filePath);
+            if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
+        } catch (err) {
+            console.error('[DeleteAccount] 删除音频失败:', filePath, err.message);
+        }
+    }
+
+    // 2) 删除用户记录。ON DELETE CASCADE 会级联删除：
+    //    seeds, replies, notifications, devices, daily_usage, credit_transactions, blocks(user_id)
+    //    reports.reporter_user_id 也会级联删除；reports.target_user_id / target_seed_id 会 SET NULL。
+    const result = db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    return { success: result.changes > 0, deletedFiles: filesToDelete.length };
 }
 
 // ============================================================
@@ -397,17 +537,26 @@ const updateSeedPrivacy = db.prepare(`
 // Prepared Statements — Treehole (公共树洞)
 // ============================================================
 
-function randomPublicSeed(userId, excludeUuids) {
+function randomPublicSeed(userId, excludeUuids, blockedUserIds = []) {
+    const blockedPlaceholders = blockedUserIds.length > 0
+        ? blockedUserIds.map(() => '?').join(',')
+        : null;
+
+    const baseWhere = `
+        s.privacy = 'public'
+        AND s.user_id != ?
+        ${blockedPlaceholders ? `AND s.user_id NOT IN (${blockedPlaceholders})` : ''}
+    `;
+
     if (excludeUuids.length === 0) {
         return db.prepare(`
             SELECT s.*, u.device_id as author_device_id
             FROM seeds s
             JOIN users u ON s.user_id = u.id
-            WHERE s.privacy = 'public'
-              AND s.user_id != ?
+            WHERE ${baseWhere}
             ORDER BY RANDOM()
             LIMIT 1
-        `).get(userId);
+        `).get(userId, ...(blockedUserIds));
     }
 
     const placeholders = excludeUuids.map(() => '?').join(',');
@@ -415,13 +564,12 @@ function randomPublicSeed(userId, excludeUuids) {
         SELECT s.*, u.device_id as author_device_id
         FROM seeds s
         JOIN users u ON s.user_id = u.id
-        WHERE s.privacy = 'public'
-          AND s.user_id != ?
+        WHERE ${baseWhere}
           AND s.uuid NOT IN (${placeholders})
         ORDER BY RANDOM()
         LIMIT 1
     `);
-    return stmt.get(userId, ...excludeUuids);
+    return stmt.get(userId, ...blockedUserIds, ...excludeUuids);
 }
 
 const countPublicSeeds = db.prepare(`
@@ -658,4 +806,14 @@ module.exports = {
     getDeviceByDeviceId,
     generateRecoveryCode,
     generateNickname,
+
+    // 举报 & 屏蔽 & 账号删除
+    reportSeed,
+    hasReportedSeed,
+    blockUser,
+    unblockUser,
+    getBlockedUserIds,
+    getBlockedUsers,
+    isBlocked,
+    deleteAccount,
 };

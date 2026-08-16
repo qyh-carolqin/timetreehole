@@ -12,6 +12,7 @@ const {
     countPublicSeeds,
     insertNotification,
     checkAndConsumeQuota,
+    getBlockedUserIds,
 } = require('../db');
 
 const pushService = require('../services/push');
@@ -70,7 +71,11 @@ router.get('/random', (req, res) => {
             });
         }
 
-        const seed = randomPublicSeed(req.user.id, excludeUuids);
+        // 获取当前用户屏蔽列表，避免推荐被屏蔽用户的内容
+        const blockedRows = getBlockedUserIds.all(req.user.id);
+        const blockedUserIds = blockedRows.map(r => r.blocked_user_id);
+
+        const seed = randomPublicSeed(req.user.id, excludeUuids, blockedUserIds);
 
         if (!seed) {
             return res.status(404).json({
@@ -92,6 +97,7 @@ router.get('/random', (req, res) => {
                 replyCount:   seed.reply_count,
                 createdAt:    seed.created_at,
                 audioUrl:     `/api/seeds/${seed.uuid}/audio`,
+                authorUserId: seed.user_id,
             },
             stats: {
                 totalPublicSeeds: countPublicSeeds.get().total,

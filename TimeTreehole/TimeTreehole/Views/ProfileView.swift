@@ -11,6 +11,8 @@ struct ProfileView: View {
     @State private var editAvatarColor = 0
     @State private var editBio = ""
     @State private var showCopiedToast = false
+    @State private var showDeleteAccountConfirm = false
+    @State private var accountDeleted = false
 
     var body: some View {
         NavigationView {
@@ -59,6 +61,20 @@ struct ProfileView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .alert("删除账号？", isPresented: $showDeleteAccountConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("确认删除", role: .destructive) {
+                Task {
+                    let success = await store.deleteAccount()
+                    if success {
+                        accountDeleted = true
+                        dismiss()
+                    }
+                }
+            }
+        } message: {
+            Text("此操作将永久删除你的账号、所有语音种子、回复、设备和消费记录，且无法恢复。")
+        }
         .onAppear {
             if store.devices.isEmpty {
                 Task { await store.fetchDevices() }
@@ -308,6 +324,27 @@ struct ProfileView: View {
             settingsRow(icon: "doc.text.fill", title: "用户协议", subtitle: nil) {}
             Divider().background(TreeholeColors.borderSubtle)
             settingsRow(icon: "info.circle.fill", title: "关于时间树洞", subtitle: "v1.0.0") {}
+            Divider().background(TreeholeColors.borderSubtle)
+            Button(action: { showDeleteAccountConfirm = true }) {
+                HStack(spacing: 12) {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(TreeholeColors.statusDanger)
+                        .frame(width: 24)
+
+                    Text("删除账号")
+                        .font(.system(size: 15))
+                        .foregroundColor(TreeholeColors.statusDanger)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12))
+                        .foregroundColor(TreeholeColors.textMuted)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
         }
         .background(TreeholeColors.bgSurface)
         .clipShape(RoundedRectangle(cornerRadius: TreeholeRadius.md))

@@ -249,6 +249,60 @@ class AppStore: ObservableObject {
         }
     }
 
+    // MARK: - 举报 / 屏蔽 / 账号删除
+
+    /// 举报当前公共树洞种子
+    func reportCurrentSeed(reason: String? = nil) async {
+        guard let seed = currentRandomSeed, let uuid = seed.serverUUID else {
+            showToast("当前没有可举报的内容")
+            return
+        }
+        do {
+            try await api.reportSeed(seedUuid: uuid, reason: reason)
+            showToast("举报已提交，我们会尽快处理")
+        } catch {
+            showToast("举报提交失败，请稍后再试")
+        }
+    }
+
+    /// 屏蔽当前公共树洞种子的作者
+    func blockCurrentSeedAuthor() async {
+        guard let seed = currentRandomSeed, let authorId = seed.authorUserId else {
+            showToast("无法获取作者信息")
+            return
+        }
+        do {
+            try await api.blockUser(userId: authorId)
+            currentRandomSeed = nil
+            showToast("已屏蔽该用户，换一颗听听吧")
+            await fetchRandomSeed()
+        } catch {
+            showToast("屏蔽失败，请稍后再试")
+        }
+    }
+
+    /// 删除账号并清空本地状态
+    func deleteAccount() async -> Bool {
+        do {
+            try await api.deleteAccount()
+            // 清理本地状态
+            UserDefaults.standard.removeObject(forKey: "com.timetreehole.registered")
+            mySeeds = []
+            notifications = []
+            userProfile = nil
+            devices = []
+            credits = 0
+            currentRandomSeed = nil
+            isRegistered = false
+            showOnboarding = true
+            showToast("账号已删除，感谢曾经的陪伴 🍂")
+            return true
+        } catch {
+            showToast("账号删除失败，请稍后再试")
+            return false
+        }
+    }
+
     /// 首次加载 / 下拉刷新
     func loadAllData() async {
         await withTaskGroup(of: Void.self) { group in
