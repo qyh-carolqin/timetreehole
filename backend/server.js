@@ -135,6 +135,9 @@ app.get('/api/my/seeds', (req, res) => {
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// 隐私政策等公开静态页面（挂在固定后端域名下，URL 永久不变，方便 App Store 配置）
+app.use(express.static(path.join(__dirname, 'public')));
+
 // ============================================================
 // 404 / 500 处理
 // ============================================================

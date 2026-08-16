@@ -21,6 +21,7 @@ COPY backend/middleware/ ./middleware/
 COPY backend/routes/     ./routes/
 COPY backend/services/   ./services/
 COPY backend/scripts/    ./scripts/
+COPY backend/public/     ./public/
 
 # 复制启动脚本
 COPY backend/render-start.sh ./
