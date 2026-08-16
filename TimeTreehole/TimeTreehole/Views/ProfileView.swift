@@ -13,6 +13,7 @@ struct ProfileView: View {
     @State private var showCopiedToast = false
     @State private var showDeleteAccountConfirm = false
     @State private var accountDeleted = false
+    @State private var showIdentity = false
 
     var body: some View {
         NavigationView {
@@ -77,6 +78,14 @@ struct ProfileView: View {
             }
         } message: {
             Text("此操作将永久删除你的账号、所有语音种子、回复、设备和消费记录，且无法恢复。")
+        }
+        .sheet(isPresented: $showIdentity) {
+            IdentityView(
+                onEnter: { showIdentity = false },
+                enterTitle: "完成",
+                subtitle: "这是你在这台设备上的稳定身份"
+            )
+            .environmentObject(store)
         }
         .onAppear {
             if store.devices.isEmpty {
@@ -373,6 +382,10 @@ struct ProfileView: View {
 
     private var settingsSection: some View {
         VStack(spacing: 0) {
+            settingsRow(icon: "checkmark.seal.fill", title: "我的身份", subtitle: "昵称与恢复码") {
+                showIdentity = true
+            }
+            Divider().background(TreeholeColors.borderSubtle)
             settingsRow(icon: "arrow.triangle.2.circlepath", title: "恢复账号", subtitle: "换设备时使用") {
                 dismiss()
                 store.showRecovery = true

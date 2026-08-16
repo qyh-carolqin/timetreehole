@@ -142,7 +142,6 @@ class AppStore: ObservableObject {
                 isRegistered = true
                 credits = profile.credits
             }
-            showOnboarding = false
             showToast("欢迎来到时间树洞 🌱")
         } catch {
             // 注册失败仍然允许使用（离线模式）

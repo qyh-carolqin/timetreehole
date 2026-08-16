@@ -8,6 +8,7 @@ struct OnboardingView: View {
     @State private var nickname: String = ""
     @State private var selectedColor: Int = 0
     @State private var isRegistering = false
+    @State private var showIdentity = false
 
     private let nicknameSuggestions = [
         "萤火旅人", "晨雾漫步者", "星苔拾光者", "林溪听风者",
@@ -15,6 +16,15 @@ struct OnboardingView: View {
     ]
 
     var body: some View {
+        if showIdentity {
+            IdentityView(onEnter: { store.showOnboarding = false })
+                .environmentObject(store)
+        } else {
+            onboardingForm
+        }
+    }
+
+    private var onboardingForm: some View {
         ZStack {
             TreeholeColors.bgPrimary.ignoresSafeArea()
 
@@ -206,6 +216,9 @@ struct OnboardingView: View {
         Task {
             await store.registerUser(nickname: nickname.trimmingCharacters(in: .whitespaces), avatarColor: selectedColor)
             isRegistering = false
+            if store.userProfile != nil {
+                showIdentity = true
+            }
         }
     }
 }
