@@ -37,6 +37,9 @@ struct NotificationsView: View {
                             ForEach(store.notifications) { notification in
                                 NotificationItem(notification: notification) {
                                     store.markNotificationRead(notification)
+                                    if let seedUUID = notification.seedUUID {
+                                        store.showSeedDetail(seedUUID: seedUUID)
+                                    }
                                 }
                             }
                         }

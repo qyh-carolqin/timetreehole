@@ -175,6 +175,8 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('     GET    /api/my/seeds             我的种子列表');
     console.log('     GET    /api/seeds/:uuid          种子详情');
     console.log('     GET    /api/seeds/:uuid/audio    播放音频');
+    console.log('     GET    /api/seeds/:uuid/replies  回复列表');
+    console.log('     GET    /api/seeds/replies/:uuid/audio  播放回复音频');
     console.log('     DELETE /api/seeds/:uuid          删除种子');
     console.log('     GET    /api/treehole/random      随机公共种子');
     console.log('     GET    /api/treehole/stats       树洞统计');

@@ -603,6 +603,13 @@ const getRepliesBySeedId = db.prepare(`
     ORDER BY r.created_at ASC
 `);
 
+const getReplyByUuid = db.prepare(`
+    SELECT r.*, s.user_id as seed_owner_id, s.privacy as seed_privacy, s.uuid as seed_uuid
+    FROM replies r
+    JOIN seeds s ON r.seed_id = s.id
+    WHERE r.uuid = ?
+`);
+
 // ============================================================
 // Prepared Statements — Notifications
 // ============================================================
@@ -614,9 +621,15 @@ const insertNotification = db.prepare(`
 `);
 
 const getNotificationsByUserId = db.prepare(`
-    SELECT * FROM notifications
-    WHERE user_id = ?
-    ORDER BY created_at DESC
+    SELECT
+        n.*,
+        s.uuid as seed_uuid,
+        r.uuid as reply_uuid
+    FROM notifications n
+    LEFT JOIN seeds s ON n.seed_id = s.id
+    LEFT JOIN replies r ON n.reply_id = r.id
+    WHERE n.user_id = ?
+    ORDER BY n.created_at DESC
     LIMIT 50
 `);
 
@@ -786,6 +799,7 @@ module.exports = {
     // Replies
     insertReply,
     getRepliesBySeedId,
+    getReplyByUuid,
 
     // Notifications
     insertNotification,

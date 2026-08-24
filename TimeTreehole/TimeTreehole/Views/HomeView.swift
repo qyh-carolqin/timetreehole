@@ -5,7 +5,8 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var store: AppStore
     @State private var seedTitle: String = ""
-    @State private var selectedPrivacy: VoicePrivacy = .private
+    // 默认投递到公共树洞：本 App 的核心是匿名公开分享，私密改为手动勾选
+    @State private var selectedPrivacy: VoicePrivacy = .public
 
     var body: some View {
         ZStack {

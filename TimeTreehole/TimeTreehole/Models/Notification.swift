@@ -16,8 +16,12 @@ struct TreeholeNotification: Identifiable, Codable {
     var createdAt: Date
     var isRead: Bool = false
 
-    /// 服务端 ID（整数），用于标记已读 API
-    var serverId: Int?
+    /// 服务端通知 UUID（字符串），用于标记已读 API
+    var serverUUID: String? = nil
+
+    /// 关联种子 UUID（点击通知进入评论详情用）
+    var seedUUID: String? = nil
+    var replyUUID: String? = nil
 
     var formattedTime: String {
         let formatter = DateFormatter()

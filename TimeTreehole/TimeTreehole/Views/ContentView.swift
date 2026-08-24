@@ -45,5 +45,13 @@ struct ContentView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+        // 种子详情（含评论列表）
+        .sheet(item: $store.seedDetailSeed, onDismiss: {
+            store.stopPlayback()
+            store.dismissSeedDetail()
+        }) { seed in
+            SeedDetailView(seed: seed)
+                .environmentObject(store)
+        }
     }
 }

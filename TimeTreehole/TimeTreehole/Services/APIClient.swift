@@ -107,6 +107,17 @@ final class APIClient {
         return response.success ?? false
     }
 
+    /// 获取某颗种子的所有语音回复
+    func fetchReplies(seedUUID: String) async throws -> [VoiceReply] {
+        let response: APIRepliesResponse = try await network.request("/api/seeds/\(seedUUID)/replies")
+        return (response.replies ?? []).map { $0.toModel() }
+    }
+
+    /// 下载回复音频文件
+    func downloadReplyAudio(uuid: String) async throws -> Data {
+        try await network.requestData("/api/seeds/replies/\(uuid)/audio")
+    }
+
     // ============================================================
     // MARK: — 通知
     // ============================================================
@@ -124,8 +135,8 @@ final class APIClient {
     }
 
     /// 标记单条已读
-    func markRead(notificationId: UUID) async throws {
-        try await network.requestVoid("/api/notifications/\(notificationId.uuidString)/read", method: "PUT")
+    func markRead(notificationUUID: String) async throws {
+        try await network.requestVoid("/api/notifications/\(notificationUUID)/read", method: "PUT")
     }
 
     /// 全部标记已读
@@ -318,6 +329,8 @@ struct NotificationDTO: Decodable {
     let relatedSeedTitle: String?
     let createdAt: String?
     let isRead: Int?
+    let seedUuid: String?
+    let replyUuid: String?
 
     func toModel() -> TreeholeNotification {
         TreeholeNotification(
@@ -328,7 +341,9 @@ struct NotificationDTO: Decodable {
             relatedSeedTitle: relatedSeedTitle ?? "",
             createdAt: parseDate(createdAt),
             isRead: (isRead ?? 0) == 1,
-            serverId: id
+            serverUUID: uuid,
+            seedUUID: seedUuid,
+            replyUUID: replyUuid
         )
     }
 

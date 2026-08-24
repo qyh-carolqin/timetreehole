@@ -47,7 +47,10 @@ struct VoiceListItem: View {
                 HStack(spacing: 6) {
                     PrivacyBadge(privacy: seed.privacy)
                     if seed.replyCount > 0 {
-                        ReplyBadge(count: seed.replyCount)
+                        Button(action: { store.showSeedDetail(for: seed) }) {
+                            ReplyBadge(count: seed.replyCount)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }

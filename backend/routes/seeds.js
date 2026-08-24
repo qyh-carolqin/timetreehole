@@ -12,6 +12,8 @@ const {
     incrementReplyCount,
     updateSeedPrivacy,
     checkAndConsumeQuota,
+    getRepliesBySeedId,
+    getReplyByUuid,
 } = require('../db');
 
 const router = express.Router();
@@ -220,6 +222,72 @@ router.get('/:uuid/audio', (req, res) => {
         fs.createReadStream(seed.file_path).pipe(res);
     } catch (err) {
         console.error('[Seeds] 音频流失败:', err);
+        res.status(500).json({ error: 'stream_failed' });
+    }
+});
+
+// ============================================================
+// GET /api/seeds/:uuid/replies — 获取种子的回复列表
+// ============================================================
+
+router.get('/:uuid/replies', (req, res) => {
+    try {
+        const seed = getSeedByUuid.get(req.params.uuid);
+        if (!seed) {
+            return res.status(404).json({ error: 'not_found', message: '种子不存在' });
+        }
+
+        // 只有种子主人能听到回复（回复只能投给公共种子，但音频仍属于私密互动）
+        if (seed.user_id !== req.user.id) {
+            return res.status(403).json({ error: 'forbidden', message: '只能听自己种子的回复' });
+        }
+
+        const replies = getRepliesBySeedId.all(seed.id);
+
+        res.json({
+            replies: replies.map(r => ({
+                uuid:      r.uuid,
+                duration:  r.duration,
+                createdAt: r.created_at,
+                audioUrl:  `/api/seeds/replies/${r.uuid}/audio`,
+            })),
+        });
+    } catch (err) {
+        console.error('[Seeds] 查询回复失败:', err);
+        res.status(500).json({ error: 'query_failed' });
+    }
+});
+
+// ============================================================
+// GET /api/seeds/replies/:uuid/audio — 播放回复音频
+// ============================================================
+
+router.get('/replies/:uuid/audio', (req, res) => {
+    try {
+        const reply = getReplyByUuid.get(req.params.uuid);
+        if (!reply) {
+            return res.status(404).json({ error: 'not_found', message: '回复不存在' });
+        }
+
+        // 只有被回复的种子的主人能收听
+        if (reply.seed_owner_id !== req.user.id) {
+            return res.status(403).json({ error: 'forbidden', message: '只能听自己种子的回复' });
+        }
+
+        if (!fs.existsSync(reply.file_path)) {
+            return res.status(404).json({ error: 'file_missing', message: '音频文件已丢失' });
+        }
+
+        const stat = fs.statSync(reply.file_path);
+        res.writeHead(200, {
+            'Content-Type': 'audio/mp4',
+            'Content-Length': stat.size,
+            'Accept-Ranges': 'bytes',
+        });
+
+        fs.createReadStream(reply.file_path).pipe(res);
+    } catch (err) {
+        console.error('[Seeds] 回复音频流失败:', err);
         res.status(500).json({ error: 'stream_failed' });
     }
 });

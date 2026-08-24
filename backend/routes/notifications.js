@@ -84,14 +84,16 @@ router.put('/read-all', (req, res) => {
 
 function formatNotification(n) {
     return {
-        uuid:      n.uuid,
-        type:      n.type,
-        title:     n.title,
-        body:      n.body,
-        isRead:    Boolean(n.is_read),
-        createdAt: n.created_at,
-        seedId:    n.seed_id,
-        replyId:   n.reply_id,
+        uuid:       n.uuid,
+        type:       n.type,
+        title:      n.title,
+        body:       n.body,
+        isRead:     Boolean(n.is_read),
+        createdAt:  n.created_at,
+        seedId:     n.seed_id,
+        replyId:    n.reply_id,
+        seedUuid:   n.seed_uuid || undefined,
+        replyUuid:  n.reply_uuid || undefined,
     };
 }
 

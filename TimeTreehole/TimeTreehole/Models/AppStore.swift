@@ -29,6 +29,12 @@ class AppStore: ObservableObject {
     @Published var seenSeedUUIDs: [String] = []
     @Published var treeholeStats: (public: Int, total: Int) = (0, 0)
 
+    // MARK: - 种子详情 / 评论
+
+    @Published var seedDetailSeed: VoiceSeed?
+    @Published var seedDetailReplies: [VoiceReply] = []
+    @Published var isLoadingSeedDetailReplies = false
+
     // MARK: - 灵叶额度
 
     @Published var credits: Int = 0
@@ -564,20 +570,50 @@ class AppStore: ObservableObject {
             return
         }
 
-        if !FileManager.default.fileExists(atPath: url.path), let serverUUID = seed.serverUUID {
-            Task {
-                do {
-                    let data = try await api.downloadAudio(uuid: serverUUID)
-                    try? data.write(to: url)
-                    playLocalFile(at: url)
-                } catch {
-                    showToast("音频加载失败")
-                }
-            }
+        // 本地文件（我自己的种子）→ 直接播放
+        if url.isFileURL, FileManager.default.fileExists(atPath: url.path) {
+            playLocalFile(at: url)
             return
         }
 
-        playLocalFile(at: url)
+        // 远程文件（公共树洞种子）→ 先下载到本地缓存，再用 AVAudioPlayer 播放
+        // 注意：AVAudioPlayer(contentsOf:) 不支持远程 URL，且不能把 Data 写入远程 URL，
+        // 因此必须落到本地文件后再播放，否则会“拿到种子却听不到声音”。
+        guard let serverUUID = seed.serverUUID else {
+            showToast("音频加载失败")
+            return
+        }
+
+        let cacheURL = AppStore.localAudioCacheURL(for: serverUUID)
+
+        // 已缓存则直接播放，避免重复下载
+        if FileManager.default.fileExists(atPath: cacheURL.path) {
+            playLocalFile(at: cacheURL)
+            return
+        }
+
+        // 下载期间显示加载态（VoiceCard 的转圈动画依赖 player.status == .loading）
+        player.status = .loading
+        Task {
+            do {
+                let data = try await api.downloadAudio(uuid: serverUUID)
+                try data.write(to: cacheURL)
+                playLocalFile(at: cacheURL)
+            } catch {
+                player.status = .idle
+                showToast("音频加载失败")
+            }
+        }
+    }
+
+    /// 公共树洞音频的本地缓存路径（按 uuid 区分，避免重复下载）
+    private static func localAudioCacheURL(for uuid: String) -> URL {
+        let dir = FileManager.default
+            .urls(for: .cachesDirectory, in: .userDomainMask)
+            .first!
+            .appendingPathComponent("TreeholeAudio", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("\(uuid).m4a")
     }
 
     private func playLocalFile(at url: URL) {
@@ -598,6 +634,94 @@ class AppStore: ObservableObject {
     func stopPlayback() {
         player.stop()
         isPlaying = false
+    }
+
+    // MARK: - 种子详情 / 评论
+
+    func showSeedDetail(for seed: VoiceSeed) {
+        seedDetailSeed = seed
+        Task { await fetchReplies(for: seed) }
+    }
+
+    func showSeedDetail(seedUUID: String) {
+        Task {
+            do {
+                let seed = try await api.fetchSeed(uuid: seedUUID)
+                await MainActor.run {
+                    seedDetailSeed = seed
+                }
+                await fetchReplies(for: seed)
+            } catch {
+                await MainActor.run {
+                    showToast("种子加载失败")
+                }
+            }
+        }
+    }
+
+    func dismissSeedDetail() {
+        seedDetailSeed = nil
+        seedDetailReplies = []
+        isLoadingSeedDetailReplies = false
+    }
+
+    func fetchReplies(for seed: VoiceSeed) async {
+        guard let uuid = seed.serverUUID else { return }
+
+        await MainActor.run { isLoadingSeedDetailReplies = true }
+        defer {
+            Task { @MainActor in
+                isLoadingSeedDetailReplies = false
+            }
+        }
+
+        do {
+            let list = try await api.fetchReplies(seedUUID: uuid)
+            await MainActor.run {
+                seedDetailReplies = list
+            }
+        } catch {
+            await MainActor.run {
+                seedDetailReplies = []
+            }
+        }
+    }
+
+    func playReply(_ reply: VoiceReply) {
+        guard let url = reply.audioURL else {
+            showToast("音频文件不存在")
+            return
+        }
+
+        let cacheURL = AppStore.localReplyCacheURL(for: reply.uuid)
+
+        if FileManager.default.fileExists(atPath: cacheURL.path) {
+            playLocalFile(at: cacheURL)
+            return
+        }
+
+        player.status = .loading
+        Task {
+            do {
+                let data = try await api.downloadReplyAudio(uuid: reply.uuid)
+                try data.write(to: cacheURL)
+                playLocalFile(at: cacheURL)
+            } catch {
+                player.status = .idle
+                showToast("音频加载失败")
+            }
+        }
+    }
+
+    /// 回复音频的本地缓存路径
+    private static func localReplyCacheURL(for uuid: String) -> URL {
+        let dir = FileManager.default
+            .urls(for: .cachesDirectory, in: .userDomainMask)
+            .first!
+            .appendingPathComponent("TreeholeAudio", isDirectory: true)
+            .appendingPathComponent("Replies", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("\(uuid).m4a")
     }
 
     // MARK: - 删除种子
@@ -748,6 +872,13 @@ class AppStore: ObservableObject {
     func markNotificationRead(_ notification: TreeholeNotification) {
         if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
             notifications[index].isRead = true
+        }
+
+        // 同步标记服务端已读
+        if let serverUUID = notification.serverUUID {
+            Task {
+                try? await api.markRead(notificationUUID: serverUUID)
+            }
         }
     }
 

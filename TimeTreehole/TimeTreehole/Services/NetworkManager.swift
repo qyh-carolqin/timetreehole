@@ -285,3 +285,8 @@ struct APIStatsResponse: Decodable {
 struct APIUnreadResponse: Decodable {
     let count: Int
 }
+
+/// 回复列表响应
+struct APIRepliesResponse: Decodable {
+    let replies: [VoiceReplyDTO]?
+}
