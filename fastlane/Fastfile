@@ -175,9 +175,10 @@ platform :ios do
     # 2.7 递增构建号 (CFBundleVersion), 避免与 Apple 已上传的 build 冲突
     #     Info.plist 的 CFBundleVersion 引用 $(CURRENT_PROJECT_VERSION)；
     #     XcodeGen 每次 generate 会把该值重置为 1, 这里在 gym 之前动态写入新值。
-    #     优先用 Codemagic 全局递增的 BUILD_NUMBER; 缺失或过小时用基于日期的递增数兜底。
-    new_build = ENV["BUILD_NUMBER"].to_s
-    new_build = (new_build.to_i > 1) ? new_build : Time.now.strftime("%y%m%d%H%M")
+    #     优先用 Codemagic 全局递增的 BUILD_NUMBER (每构建 +1, 永不回退);
+    #     缺失时回退到“日期+秒”戳 (yyMMddHHmmss), 既单调递增又保证每秒唯一, 杜绝同分钟碰撞。
+    ci_build = ENV["BUILD_NUMBER"].to_i
+    new_build = (ci_build > 1) ? ci_build.to_s : Time.now.strftime("%y%m%d%H%M%S")
     sh %Q{sed -i '' -E 's/(CURRENT_PROJECT_VERSION = ?)"?[0-9]+;"?/\\1#{new_build};/g' "#{pbxproj}"}
     UI.message("🔢 构建号 (CFBundleVersion) 设置为 #{new_build} (文件: #{pbxproj})")
 
