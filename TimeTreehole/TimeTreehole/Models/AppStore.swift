@@ -688,7 +688,7 @@ class AppStore: ObservableObject {
     }
 
     func playReply(_ reply: VoiceReply) {
-        guard let url = reply.audioURL else {
+        guard reply.audioURL != nil else {
             showToast("音频文件不存在")
             return
         }

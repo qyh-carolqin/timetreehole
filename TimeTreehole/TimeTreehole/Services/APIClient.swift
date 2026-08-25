@@ -50,10 +50,9 @@ final class APIClient {
         return (response.seeds ?? []).map { $0.toModel() }
     }
 
-    /// 获取种子详情
+    /// 获取种子详情（后端返回扁平对象，非 { seed: ... } 包装）
     func fetchSeed(uuid: String) async throws -> VoiceSeed {
-        let response: APIItemResponse<VoiceSeedDTO> = try await network.request("/api/seeds/\(uuid)")
-        guard let dto = response.seed else { throw APIError.notFound }
+        let dto: VoiceSeedDTO = try await network.request("/api/seeds/\(uuid)")
         return dto.toModel()
     }
 
@@ -322,13 +321,12 @@ struct VoiceSeedDTO: Decodable {
 }
 
 struct NotificationDTO: Decodable {
-    let id: Int
+    let uuid: String?
     let type: String?
     let title: String?
-    let subtitle: String?
-    let relatedSeedTitle: String?
+    let body: String?
+    let isRead: Bool?
     let createdAt: String?
-    let isRead: Int?
     let seedUuid: String?
     let replyUuid: String?
 
@@ -337,10 +335,10 @@ struct NotificationDTO: Decodable {
             id: UUID(),
             type: (type == "growth") ? .growth : .reply,
             title: title ?? "",
-            subtitle: subtitle ?? "",
-            relatedSeedTitle: relatedSeedTitle ?? "",
+            subtitle: body ?? "",
+            relatedSeedTitle: title ?? "",
             createdAt: parseDate(createdAt),
-            isRead: (isRead ?? 0) == 1,
+            isRead: isRead ?? false,
             serverUUID: uuid,
             seedUUID: seedUuid,
             replyUUID: replyUuid
