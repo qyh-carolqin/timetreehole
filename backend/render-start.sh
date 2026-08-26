@@ -14,7 +14,8 @@ echo ""
 echo "  📋 检查数据库状态..."
 
 DB_PATH="${DB_PATH:-/app/data/timetreehole.db}"
-UPLOADS_DIR="${UPLOADS_DIR:-/app/uploads}"
+# 优先使用 UPLOAD_DIR（与 Railsway 持久卷一致），向后兼容 UPLOADS_DIR
+UPLOADS_DIR="${UPLOAD_DIR:-${UPLOADS_DIR:-/app/uploads}}"
 PORT="${PORT:-3000}"
 
 # 确保目录存在

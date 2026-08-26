@@ -23,7 +23,8 @@ const router = express.Router();
 // Multer 配置 — 回复音频上传
 // ============================================================
 
-const uploadDir = path.join(__dirname, '..', 'uploads');
+// 上传目录可由 UPLOAD_DIR 环境变量覆盖（Railway 持久卷方案）
+const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const dateDir = new Date().toISOString().slice(0, 10);

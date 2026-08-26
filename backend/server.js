@@ -133,7 +133,9 @@ app.get('/api/my/seeds', (req, res) => {
 // 静态文件 — 开发环境音频直接访问（生产用 CDN）
 // ============================================================
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// 静态文件 — 上传音频目录可由 UPLOAD_DIR 覆盖（与持久卷一致）
+const uploadsServeDir = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(uploadsServeDir));
 
 // 隐私政策等公开静态页面（挂在固定后端域名下，URL 永久不变，方便 App Store 配置）
 app.use(express.static(path.join(__dirname, 'public')));
