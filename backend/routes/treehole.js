@@ -61,16 +61,9 @@ router.get('/random', (req, res) => {
             ? req.query.exclude.split(',').filter(Boolean)
             : [];
 
-        // 检查每日获取配额
-        const quotaResult = checkAndConsumeQuota(req.user.id, 'retrieval');
-        if (!quotaResult.allowed) {
-            return res.status(402).json({
-                error: 'quota_exceeded',
-                message: quotaResult.message,
-                creditsNeeded: quotaResult.creditsNeeded,
-                userCredits: quotaResult.userCredits,
-            });
-        }
+        // 公共树洞「浏览」免费 —— 核心社交体验，不设灵叶门槛。
+        // 否则 0 灵叶的新用户第 1 次免费浏览后每次都会被 402 挡死，看不到任何公共种子。
+        // 灵叶仅用于「发布公共种子」等主动创作行为（见 seeds.js 的上传配额）。
 
         // 获取当前用户屏蔽列表，避免推荐被屏蔽用户的内容
         const blockedRows = getBlockedUserIds.all(req.user.id);
@@ -102,10 +95,6 @@ router.get('/random', (req, res) => {
             },
             stats: {
                 totalPublicSeeds: countPublicSeeds.get().total,
-            },
-            quota: {
-                creditsUsed:    quotaResult.creditsUsed,
-                remainingFree:  quotaResult.remainingFree,
             },
         });
     } catch (err) {

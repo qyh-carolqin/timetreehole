@@ -157,6 +157,37 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================
+// 生产环境数据清理
+//  - 移除 seed-demo.js 遗留的演示账户（device-demo-user-001/002/003）
+//    及其种子/回复/通知（依赖外键 ON DELETE CASCADE 级联）
+//  - 移除 file_size = 0 的损坏种子（早期卷损坏期的遗留上传，无法播放）
+//  幂等：每次启动执行，已清理后无副作用。
+// ============================================================
+
+if (NODE_ENV === 'production') {
+    try {
+        const DEMO_DEVICES = ['device-demo-user-001', 'device-demo-user-002', 'device-demo-user-003'];
+        const demoIds = DEMO_DEVICES
+            .map(d => db.prepare('SELECT id FROM users WHERE device_id = ?').get(d))
+            .filter(Boolean)
+            .map(r => r.id);
+
+        if (demoIds.length) {
+            const ph = demoIds.map(() => '?').join(',');
+            db.prepare(`DELETE FROM users WHERE id IN (${ph})`).run(...demoIds);
+            console.log(`[清理] 已移除 ${demoIds.length} 个演示账户（含其种子/回复/通知，外键级联）`);
+        }
+
+        const broken = db.prepare("DELETE FROM seeds WHERE file_size = 0 OR file_size IS NULL").run();
+        if (broken.changes > 0) {
+            console.log(`[清理] 已移除 ${broken.changes} 颗损坏(0字节)种子`);
+        }
+    } catch (e) {
+        console.error('[清理] 演示/损坏数据清理失败(可忽略):', e.message);
+    }
+}
+
+// ============================================================
 // 启动
 // ============================================================
 

@@ -10,12 +10,13 @@ struct VoiceCard: View {
 
     private var isCurrentPlaying: Bool {
         guard let url = seed.audioURL else { return false }
-        return player.currentURL == url && (player.status == .playing || player.status == .paused)
+        // 远程公共种子实际播放的是本地缓存文件，故需按逻辑种子 URL 匹配
+        return player.currentSeedURL == url && (player.status == .playing || player.status == .paused)
     }
 
     private var isPlayingThis: Bool {
         guard let url = seed.audioURL else { return false }
-        return player.currentURL == url && player.status == .playing
+        return player.currentSeedURL == url && player.status == .playing
     }
 
     var body: some View {

@@ -30,6 +30,11 @@ final class AudioPlayer: NSObject, ObservableObject {
     private var levelTimer: Timer?
     var currentURL: URL?
 
+    /// 逻辑种子 URL（= 种子的 audioURL），用于 UI 匹配当前播放项。
+    /// 远程公共种子实际播放的是本地缓存文件(currentURL=缓存路径)，
+    /// 但 VoiceCard 需要按「种子本身」判断是否正在播放，故单独记录逻辑 URL。
+    var currentSeedURL: URL?
+
     // MARK: - 状态枚举
 
     enum PlayStatus: Equatable {
@@ -52,7 +57,7 @@ final class AudioPlayer: NSObject, ObservableObject {
     // MARK: - 播放
 
     /// 加载并播��指定 URL 的音频
-    func play(url: URL) {
+    func play(url: URL, logicalURL: URL? = nil) {
         // 如果已经在播同一个文件，则暂停
         if let current = currentURL, current == url, status == .playing {
             pause()
@@ -63,6 +68,7 @@ final class AudioPlayer: NSObject, ObservableObject {
         stop()
 
         currentURL = url
+        currentSeedURL = logicalURL ?? url
 
         do {
             let session = AVAudioSession.sharedInstance()
@@ -151,6 +157,7 @@ final class AudioPlayer: NSObject, ObservableObject {
         player?.stop()
         player = nil
         currentURL = nil
+        currentSeedURL = nil
 
         progressTimer?.invalidate()
         progressTimer = nil

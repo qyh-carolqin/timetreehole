@@ -423,10 +423,17 @@ class AppStore: ObservableObject {
                 mySeeds = seeds
             }
         } catch {
+            // 生产环境不再把 `VoiceSeed.samples` 假数据塞进「我的种子」，
+            // 否则用户登录后会看到一堆无法收听的「预存语音」。
+            // 仅在 DEBUG 构建保留本地占位数据，方便开发预览。
+            #if DEBUG
             if mySeeds.isEmpty {
                 mySeeds = VoiceSeed.samples
                 showToast("网络不可用，显示本地数据")
             }
+            #else
+            showToast("网络不可用，请稍后再试")
+            #endif
         }
     }
 
@@ -588,7 +595,7 @@ class AppStore: ObservableObject {
 
         // 已缓存则直接播放，避免重复下载
         if FileManager.default.fileExists(atPath: cacheURL.path) {
-            playLocalFile(at: cacheURL)
+            playLocalFile(at: cacheURL, logicalURL: seed.audioURL)
             return
         }
 
@@ -598,7 +605,7 @@ class AppStore: ObservableObject {
             do {
                 let data = try await api.downloadAudio(uuid: serverUUID)
                 try data.write(to: cacheURL)
-                playLocalFile(at: cacheURL)
+                playLocalFile(at: cacheURL, logicalURL: seed.audioURL)
             } catch {
                 player.status = .idle
                 showToast("音频加载失败")
@@ -616,7 +623,7 @@ class AppStore: ObservableObject {
         return dir.appendingPathComponent("\(uuid).m4a")
     }
 
-    private func playLocalFile(at url: URL) {
+    private func playLocalFile(at url: URL, logicalURL: URL? = nil) {
         if player.status == .playing, player.currentURL == url {
             player.pause()
             isPlaying = false
@@ -627,7 +634,7 @@ class AppStore: ObservableObject {
             isPlaying = true
             return
         }
-        player.play(url: url)
+        player.play(url: url, logicalURL: logicalURL)
         isPlaying = true
     }
 
@@ -696,7 +703,7 @@ class AppStore: ObservableObject {
         let cacheURL = AppStore.localReplyCacheURL(for: reply.uuid)
 
         if FileManager.default.fileExists(atPath: cacheURL.path) {
-            playLocalFile(at: cacheURL)
+            playLocalFile(at: cacheURL, logicalURL: seed.audioURL)
             return
         }
 
