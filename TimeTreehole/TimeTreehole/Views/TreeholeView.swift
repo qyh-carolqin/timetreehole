@@ -183,24 +183,11 @@ struct TreeholeView: View {
         HStack(spacing: 8) {
             Image(systemName: "arrow.down.circle.fill")
                 .font(.system(size: 13))
-                .foregroundColor(
-                    store.retrievalQuotaExhausted
-                        ? TreeholeColors.accentSecondary
-                        : TreeholeColors.accentPrimary
-                )
+                .foregroundColor(TreeholeColors.accentPrimary)
 
-            if store.retrievalQuotaExhausted {
-                Text("每次获取消耗 ")
-                    .font(.system(size: 12))
-                    .foregroundColor(TreeholeColors.textSecondary)
-                + Text("\(store.costExtraRetrieval) 灵叶")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(TreeholeColors.accentSecondary)
-            } else {
-                Text("今日免费 \(store.dailyRetrievals + 1)/\(store.maxDailyRetrievals) 次")
-                    .font(.system(size: 12))
-                    .foregroundColor(TreeholeColors.accentPrimary)
-            }
+            Text("公共树洞免费畅听 · 不限次数")
+                .font(.system(size: 12))
+                .foregroundColor(TreeholeColors.accentPrimary)
 
             Spacer()
 
@@ -219,7 +206,6 @@ struct TreeholeView: View {
         .padding(12)
         .background(TreeholeColors.accentPrimary.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: TreeholeRadius.sm))
-        .animation(.spring(response: 0.3), value: store.retrievalQuotaExhausted)
     }
 
     // MARK: - 空状态

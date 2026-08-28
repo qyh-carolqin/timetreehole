@@ -188,11 +188,11 @@ struct StoreView: View {
                 Divider().background(TreeholeColors.borderSubtle)
 
                 quotaRow(
-                    label: "从公共域获取",
+                    label: "从公共域获取（免费）",
                     icon: "arrow.down.circle.fill",
                     used: store.dailyRetrievals,
                     max: store.maxDailyRetrievals,
-                    cost: store.costExtraRetrieval
+                    cost: 0
                 )
             }
             .padding(16)
@@ -235,13 +235,19 @@ struct StoreView: View {
                 .frame(height: 6)
 
                 HStack {
-                    Text("\(used)/\(max) 次免费")
-                        .font(.system(size: 11))
-                        .foregroundColor(TreeholeColors.textMuted)
+                    if cost > 0 {
+                        Text("\(used)/\(max) 次免费")
+                            .font(.system(size: 11))
+                            .foregroundColor(TreeholeColors.textMuted)
+                    } else {
+                        Text("免费畅听")
+                            .font(.system(size: 11))
+                            .foregroundColor(TreeholeColors.textMuted)
+                    }
 
                     Spacer()
 
-                    if used >= max {
+                    if used >= max && cost > 0 {
                         Text("再次需 \(cost) 灵叶")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(TreeholeColors.accentSecondary)
