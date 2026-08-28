@@ -579,7 +579,7 @@ class AppStore: ObservableObject {
 
         // 本地文件（我自己的种子）→ 直接播放
         if url.isFileURL, FileManager.default.fileExists(atPath: url.path) {
-            playLocalFile(at: url)
+            playLocalFile(at: url, logicalURL: seed.audioURL)
             return
         }
 
@@ -703,7 +703,7 @@ class AppStore: ObservableObject {
         let cacheURL = AppStore.localReplyCacheURL(for: reply.uuid)
 
         if FileManager.default.fileExists(atPath: cacheURL.path) {
-            playLocalFile(at: cacheURL, logicalURL: seed.audioURL)
+            playLocalFile(at: cacheURL, logicalURL: reply.audioURL)
             return
         }
 
@@ -712,7 +712,7 @@ class AppStore: ObservableObject {
             do {
                 let data = try await api.downloadReplyAudio(uuid: reply.uuid)
                 try data.write(to: cacheURL)
-                playLocalFile(at: cacheURL)
+                playLocalFile(at: cacheURL, logicalURL: reply.audioURL)
             } catch {
                 player.status = .idle
                 showToast("音频加载失败")
