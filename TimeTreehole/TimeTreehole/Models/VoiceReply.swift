@@ -36,20 +36,13 @@ struct VoiceReplyDTO: Decodable {
     let createdAt: String?
     let audioUrl: String?
 
-    func toModel() -> VoiceReply {
+    func toModel()  -> VoiceReply {
         VoiceReply(
             id: UUID(uuidString: uuid) ?? UUID(),
             uuid: uuid,
             duration: duration ?? 0,
-            createdAt: parseDate(createdAt),
+            createdAt: Date.fromServer(createdAt),
             audioURL: audioUrl.flatMap { URL(string: "\(APIConfig.baseURL)\($0)") }
         )
-    }
-
-    private func parseDate(_ iso: String?) -> Date {
-        guard let iso = iso else { return Date() }
-        let fmt = ISO8601DateFormatter()
-        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fmt.date(from: iso) ?? Date()
     }
 }

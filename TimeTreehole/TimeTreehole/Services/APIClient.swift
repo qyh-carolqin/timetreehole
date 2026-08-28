@@ -305,18 +305,11 @@ struct VoiceSeedDTO: Decodable {
             duration: duration ?? 0,
             privacy: (privacy == "public") ? .public : .private,
             replyCount: replyCount ?? 0,
-            createdAt: parseDate(createdAt),
+            createdAt: Date.fromServer(createdAt),
             audioURL: URL(string: "\(APIConfig.baseURL)/api/seeds/\(uuid)/audio"),
             serverUUID: uuid,
             authorUserId: authorUserId
         )
-    }
-
-    private func parseDate(_ iso: String?) -> Date {
-        guard let iso = iso else { return Date() }
-        let fmt = ISO8601DateFormatter()
-        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fmt.date(from: iso) ?? Date()
     }
 }
 
@@ -337,19 +330,12 @@ struct NotificationDTO: Decodable {
             title: title ?? "",
             subtitle: body ?? "",
             relatedSeedTitle: title ?? "",
-            createdAt: parseDate(createdAt),
+            createdAt: Date.fromServer(createdAt),
             isRead: isRead ?? false,
             serverUUID: uuid,
             seedUUID: seedUuid,
             replyUUID: replyUuid
         )
-    }
-
-    private func parseDate(_ iso: String?) -> Date {
-        guard let iso = iso else { return Date() }
-        let fmt = ISO8601DateFormatter()
-        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fmt.date(from: iso) ?? Date()
     }
 }
 
