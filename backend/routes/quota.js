@@ -105,7 +105,8 @@ router.post('/recharge', (req, res) => {
 router.get('/transactions', (req, res) => {
     try {
         const txs = db.prepare(`
-            SELECT * FROM credit_transactions
+            SELECT *, strftime('%Y-%m-%dT%H:%M:%fZ', created_at) AS created_at
+            FROM credit_transactions
             WHERE user_id = ?
             ORDER BY created_at DESC
             LIMIT 50

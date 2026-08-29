@@ -517,15 +517,22 @@ const insertSeed = db.prepare(`
     RETURNING *
 `);
 
+// 时间输出约定：库里 created_at 由 datetime('now') 写入，是 UTC 的 "YYYY-MM-DD HH:MM:SS"。
+// iOS 端用 ISO8601DateFormatter 解析，必须带毫秒才认，故统一转成 ISO8601(UTC, 带毫秒) 再返回。
+// 用法：SELECT ..., strftime('%Y-%m-%dT%H:%M:%fZ', s.created_at) AS created_at
+// 同名列后者覆盖前者，路由层仍可直接读 r.created_at，无需改动。
+
 const getSeedByUuid = db.prepare(`
-    SELECT s.*, u.device_id as author_device_id
+    SELECT s.*, u.device_id as author_device_id,
+           strftime('%Y-%m-%dT%H:%M:%fZ', s.created_at) AS created_at
     FROM seeds s
     JOIN users u ON s.user_id = u.id
     WHERE s.uuid = ?
 `);
 
 const getSeedsByUserId = db.prepare(`
-    SELECT * FROM seeds
+    SELECT *, strftime('%Y-%m-%dT%H:%M:%fZ', created_at) AS created_at
+    FROM seeds
     WHERE user_id = ?
     ORDER BY created_at DESC
 `);
@@ -559,7 +566,8 @@ function randomPublicSeed(userId, excludeUuids, blockedUserIds = []) {
 
     if (excludeUuids.length === 0) {
         return db.prepare(`
-            SELECT s.*, u.device_id as author_device_id
+            SELECT s.*, u.device_id as author_device_id,
+                   strftime('%Y-%m-%dT%H:%M:%fZ', s.created_at) AS created_at
             FROM seeds s
             JOIN users u ON s.user_id = u.id
             WHERE ${baseWhere}
@@ -570,7 +578,8 @@ function randomPublicSeed(userId, excludeUuids, blockedUserIds = []) {
 
     const placeholders = excludeUuids.map(() => '?').join(',');
     const stmt = db.prepare(`
-        SELECT s.*, u.device_id as author_device_id
+        SELECT s.*, u.device_id as author_device_id,
+               strftime('%Y-%m-%dT%H:%M:%fZ', s.created_at) AS created_at
         FROM seeds s
         JOIN users u ON s.user_id = u.id
         WHERE ${baseWhere}
@@ -596,7 +605,8 @@ const insertReply = db.prepare(`
 `);
 
 const getRepliesBySeedId = db.prepare(`
-    SELECT r.*, u.device_id as replier_device_id
+    SELECT r.*, u.device_id as replier_device_id,
+           strftime('%Y-%m-%dT%H:%M:%fZ', r.created_at) AS created_at
     FROM replies r
     JOIN users u ON r.replier_id = u.id
     WHERE r.seed_id = ?
@@ -623,6 +633,7 @@ const insertNotification = db.prepare(`
 const getNotificationsByUserId = db.prepare(`
     SELECT
         n.*,
+        strftime('%Y-%m-%dT%H:%M:%fZ', n.created_at) AS created_at,
         s.uuid as seed_uuid,
         r.uuid as reply_uuid
     FROM notifications n
