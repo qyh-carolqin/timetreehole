@@ -1,0 +1,48 @@
+# ============================================================
+#  时间树洞 · 生产部署（Docker Compose + Caddy 自动 HTTPS）
+#  放置位置: 仓库 deploy/ 目录
+#  数据落盘: ./data (SQLite) + ./uploads (语音音频)
+# ============================================================
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      # 数据目录与宿主机 ./data ./uploads 一一对应，重建容器不丢数据
+      DB_DIR: /app/persist/data
+      UPLOAD_DIR: /app/persist/uploads
+      APPLE_SHARED_SECRET: ${APPLE_SHARED_SECRET:-}
+    volumes:
+      - ./data:/app/persist/data
+      - ./uploads:/app/persist/uploads
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http=require('http');http.get('http://localhost:3000/api/health',r=>process.exit(r.statusCode===200?0:1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  caddy:
+    image: caddy:2
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  caddy_data:
+  caddy_config:

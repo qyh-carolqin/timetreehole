@@ -1,0 +1,26 @@
+# ============================================================
+#  Caddy 配置 — 自动申请并续期 Let's Encrypt 证书
+#  ⚠️ 把下面第一行的域名换成你自己的域名（需已解析到本机公网 IP）
+# ============================================================
+
+api.example.com {
+	encode gzip
+
+	# 语音上传需要较大的请求体
+	request_body {
+		max_size 50MB
+	}
+
+	reverse_proxy api:3000 {
+		# 上传大音频时避免过早超时
+		flush_interval -1
+		transport http {
+			read_timeout 120s
+			write_timeout 120s
+		}
+	}
+
+	# 健康检查不写访问日志
+	@health path /api/health
+	log_skip @health
+}
