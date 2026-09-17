@@ -18,6 +18,22 @@ const {
 
 const router = express.Router();
 
+/**
+ * 丢弃本次已落盘的上传文件。
+ * multer 在处理请求体时就把音频写进了 uploads/，若之后因配额不足、
+ * 校验失败或异常而提前返回，磁盘上会留下一条没有任何数据库记录的
+ * 「孤儿音频」——用户看不到、也占着空间。所有提前返回的路径都要调用它。
+ */
+function discardUpload(req) {
+    const p = req.file && req.file.path;
+    if (!p) return;
+    try {
+        fs.unlinkSync(p);
+    } catch (_) {
+        // 文件已不存在或不可删，忽略即可
+    }
+}
+
 // ============================================================
 // Multer 配置 — 音频上传
 // ============================================================
@@ -75,6 +91,8 @@ router.post('/', upload.single('audio'), (req, res) => {
             quotaResult = checkAndConsumeQuota(req.user.id, 'upload');
             if (!quotaResult.allowed) {
                 // 免费额度用完且灵叶不足 → 拒绝上传
+                // 音频已被 multer 写入磁盘，必须一并删掉，否则留下无法访问的孤儿文件
+                discardUpload(req);
                 return res.status(402).json({
                     error: 'quota_exceeded',
                     message: quotaResult.message,
@@ -104,6 +122,7 @@ router.post('/', upload.single('audio'), (req, res) => {
         });
     } catch (err) {
         console.error('[Seeds] 上传失败:', err);
+        discardUpload(req);
         res.status(500).json({ error: 'upload_failed', message: '种子保存失败' });
     }
 });
@@ -155,6 +174,7 @@ router.post('/with-duration', upload.single('audio'), (req, res) => {
         });
     } catch (err) {
         console.error('[Seeds] 上传失败:', err);
+        discardUpload(req);
         res.status(500).json({ error: 'upload_failed', message: '种子保存失败' });
     }
 });

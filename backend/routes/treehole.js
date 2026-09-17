@@ -19,6 +19,20 @@ const pushService = require('../services/push');
 
 const router = express.Router();
 
+/**
+ * 丢弃本次已落盘的上传文件（原因同 seeds.js 的 discardUpload）。
+ * 回复接口在校验目标种子时若提前返回，multer 写入的音频会变成孤儿文件。
+ */
+function discardUpload(req) {
+    const p = req.file && req.file.path;
+    if (!p) return;
+    try {
+        fs.unlinkSync(p);
+    } catch (_) {
+        // 忽略
+    }
+}
+
 // ============================================================
 // Multer 配置 — 回复音频上传
 // ============================================================
@@ -126,16 +140,19 @@ router.post('/:uuid/reply', upload.single('audio'), (req, res) => {
         // 查找目标种子
         const seed = getSeedByUuid.get(req.params.uuid);
         if (!seed) {
+            discardUpload(req);
             return res.status(404).json({ error: 'not_found', message: '种子不存在' });
         }
 
         // 只能回复公开的种子
         if (seed.privacy !== 'public') {
+            discardUpload(req);
             return res.status(403).json({ error: 'forbidden', message: '不能回复私密种子' });
         }
 
         // 不能回复自己的种子
         if (seed.user_id === req.user.id) {
+            discardUpload(req);
             return res.status(400).json({ error: 'self_reply', message: '不能回复自己的种子' });
         }
 
@@ -242,6 +259,7 @@ router.post('/:uuid/reply', upload.single('audio'), (req, res) => {
         });
     } catch (err) {
         console.error('[Treehole] 回复失败:', err);
+        discardUpload(req);
         res.status(500).json({ error: 'reply_failed', message: err.message });
     }
 });
