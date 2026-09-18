@@ -57,6 +57,21 @@ app.use(cors({
 
 app.use(express.json({ limit: '5mb' }));
 
+// iOS 端 JSONEncoder 用 snake_case 编码请求体（如 recovery_code），
+// 后端路由统一读 camelCase（recoveryCode）。这里为 snake_case 键补 camelCase 别名，
+// 不改动原键，对纯单词字段无影响。修复恢复账号/头像色/IAP 充值等字段对不上问题。
+app.use((req, res, next) => {
+    if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
+        for (const key of Object.keys(req.body)) {
+            const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+            if (camel !== key && req.body[camel] === undefined) {
+                req.body[camel] = req.body[key];
+            }
+        }
+    }
+    next();
+});
+
 // 请求日志
 app.use((req, res, next) => {
     const start = Date.now();
