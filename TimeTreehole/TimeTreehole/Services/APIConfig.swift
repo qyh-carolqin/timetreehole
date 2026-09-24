@@ -15,9 +15,9 @@ enum APIConfig {
     #if DEBUG
     static let baseURL = "http://localhost:3000"
     #else
-    // 内测/生产后端地址：Railway 免费层 (自动 HTTPS, 无需境外信用卡)
-    // 后端实际部署在 Railway，UptimeRobot 每 5 分钟 ping /api/health 保活。
-    static let baseURL = "https://timetreehole-api-production-f42f.up.railway.app"
+    // 内测/生产后端地址：腾讯云轻量·新加坡 (Docker + Caddy 自动 HTTPS)
+    // 域名 api.timetreehole.cn，UptimeRobot 每 5 分钟 ping /api/health 保活。
+    static let baseURL = "https://api.timetreehole.cn"
     #endif
 
     /// 当前运行环境
