@@ -95,8 +95,8 @@ struct StoreView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             ruleRow("🌱", "上传种子到公共域：10 灵叶 / 次")
-                            ruleRow("🔍", "从公共域获取种子：5 灵叶 / 次")
-                            ruleRow("🎁", "每天免费上传 1 次 + 获取 1 次")
+                            ruleRow("🔍", "从公共域获取种子：免费")
+                            ruleRow("🎁", "每天免费上传 1 次")
                             ruleRow("🔄", "每日免费额度每天 0:00 重置")
                         }
                     }
