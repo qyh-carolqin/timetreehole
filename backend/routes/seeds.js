@@ -145,6 +145,8 @@ router.post('/with-duration', upload.single('audio'), (req, res) => {
         if (isPublic) {
             quotaResult = checkAndConsumeQuota(req.user.id, 'upload');
             if (!quotaResult.allowed) {
+                // 音频已被 multer 写入磁盘，必须一并删掉，否则留下无法访问的孤儿文件
+                discardUpload(req);
                 return res.status(402).json({
                     error: 'quota_exceeded',
                     message: quotaResult.message,
