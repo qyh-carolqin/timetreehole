@@ -34,6 +34,31 @@ function discardUpload(req) {
     }
 }
 
+/**
+ * 包装 multer 中间件，确保任何上传层错误都清理已落盘的文件。
+ *
+ * multer 在解析请求体时就把音频写入磁盘。若随后：
+ *   - 客户端在上传中途断开（连接中断/网络抖动，busboy 已写完文件但 multipart 未收尾而抛错）；
+ *   - 文件格式/大小被 fileFilter、limits 拒绝；
+ * 错误会直接抛给 Express 默认错误处理器，绕开路由 handler 的 try/catch，
+ * 导致磁盘留下一条没有任何数据库记录的「孤儿音频」。
+ * 这里在 multer 回调里拦截错误并清理；同时监听 req 'aborted' 兜底。
+ */
+function uploadSingle(field) {
+    const mw = upload.single(field);
+    return (req, res, next) => {
+        mw(req, res, (err) => {
+            if (err) {
+                discardUpload(req);
+                return next(err);
+            }
+            // 文件已落盘、但客户端在请求完成前断开：兜底清理
+            req.on('aborted', () => discardUpload(req));
+            next();
+        });
+    };
+}
+
 // ============================================================
 // Multer 配置 — 音频上传
 // ============================================================
@@ -131,7 +156,7 @@ router.post('/', upload.single('audio'), (req, res) => {
 // POST /api/seeds/with-duration — 上传并指定时长
 // ============================================================
 
-router.post('/with-duration', upload.single('audio'), (req, res) => {
+router.post('/with-duration', uploadSingle('audio'), (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'missing_file', message: '请提供音频文件' });
