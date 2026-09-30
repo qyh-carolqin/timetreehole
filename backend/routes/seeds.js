@@ -25,12 +25,22 @@ const router = express.Router();
  * 「孤儿音频」——用户看不到、也占着空间。所有提前返回的路径都要调用它。
  */
 function discardUpload(req) {
-    const p = req.file && req.file.path;
-    if (!p) return;
-    try {
-        fs.unlinkSync(p);
-    } catch (_) {
-        // 文件已不存在或不可删，忽略即可
+    // 收集所有「本次请求已落盘」的文件路径：
+    //  - req.file.path：multer 正常解析完后的路径（成功路径）
+    //  - req.__uploadPaths：我们在 filename 回调里记录的路径，
+    //    关键用于「客户端中途断流」场景——此时 req.file 尚未赋值，
+    //    但文件已经写到磁盘，必须靠这条记录才能清理，否则成为孤儿。
+    const paths = [];
+    if (req.file && req.file.path) paths.push(req.file.path);
+    if (Array.isArray(req.__uploadPaths)) {
+        for (const p of req.__uploadPaths) if (p) paths.push(p);
+    }
+    for (const p of paths) {
+        try {
+            fs.unlinkSync(p);
+        } catch (_) {
+            // 文件已不存在或不可删，忽略即可
+        }
     }
 }
 
@@ -47,16 +57,40 @@ function discardUpload(req) {
 function uploadSingle(field) {
     const mw = upload.single(field);
     return (req, res, next) => {
+        // 客户端在上传中途断开（网络抖动/断流）：在 multer 开始解析前就挂监听，
+        // 一旦连接中止立即清理已落盘的半截文件，避免留下孤儿。
+        const onAborted = () => discardUpload(req);
+        req.on('aborted', onAborted);
+
         mw(req, res, (err) => {
+            // 解析成功：移除监听，避免响应发出后误删已绑定到种子的文件
+            req.removeListener('aborted', onAborted);
             if (err) {
                 discardUpload(req);
                 return next(err);
             }
-            // 文件已落盘、但客户端在请求完成前断开：兜底清理
-            req.on('aborted', () => discardUpload(req));
             next();
         });
     };
+}
+
+/**
+ * 把已完整落盘的录音存为「私密种子」。
+ * 用于：用户想发公域、但公域配额（每日免费额度/灵叶）已不足时，
+ * 自动降级保存为私密，不丢弃录音、不留孤儿文件；之后用户有额度可再转公域。
+ */
+function saveAsPrivateSeed(req, title, duration) {
+    const uuid = uuidv4();
+    const seed = insertSeed.get(
+        uuid,
+        req.user.id,
+        title || '语音种子',
+        parseFloat(duration) || 0,
+        'private',
+        req.file.path,
+        req.file.size
+    );
+    return seed;
 }
 
 // ============================================================
@@ -73,11 +107,18 @@ const storage = multer.diskStorage({
         const dateDir = new Date().toISOString().slice(0, 10);
         const dir = path.join(uploadDir, dateDir);
         fs.mkdirSync(dir, { recursive: true });
+        // 记录本次请求将写入的路径集合，便于上传失败/中断时彻底清理（防止孤儿文件）
+        req.__uploadPaths = req.__uploadPaths || [];
+        req.__uploadDir = dir;
         cb(null, dir);
     },
     filename: (req, file, cb) => {
         const ext = path.extname(file.originalname) || '.m4a';
-        cb(null, `${uuidv4()}${ext}`);
+        const name = `${uuidv4()}${ext}`;
+        // 记下完整落盘路径：客户端中途断流时 multer 不会给 req.file 赋值，
+        // 但文件已经写到这个路径，必须有记录才能在 abort 时删掉它。
+        if (req.__uploadDir) req.__uploadPaths.push(path.join(req.__uploadDir, name));
+        cb(null, name);
     }
 });
 
@@ -101,7 +142,7 @@ const upload = multer({
 // POST /api/seeds — 上传语音种子
 // ============================================================
 
-router.post('/', upload.single('audio'), (req, res) => {
+router.post('/', uploadSingle('audio'), (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'missing_file', message: '请提供音频文件' });
@@ -115,14 +156,17 @@ router.post('/', upload.single('audio'), (req, res) => {
         if (isPublic) {
             quotaResult = checkAndConsumeQuota(req.user.id, 'upload');
             if (!quotaResult.allowed) {
-                // 免费额度用完且灵叶不足 → 拒绝上传
-                // 音频已被 multer 写入磁盘，必须一并删掉，否则留下无法访问的孤儿文件
-                discardUpload(req);
-                return res.status(402).json({
-                    error: 'quota_exceeded',
-                    message: quotaResult.message,
-                    creditsNeeded: quotaResult.creditsNeeded,
-                    userCredits: quotaResult.userCredits,
+                // 公域配额（每日免费额度/灵叶）已不足：录音已完整落盘，
+                // 自动降级存为「私密种子」，不丢弃、不留孤儿；用户之后有额度时再自行转公域。
+                const seed = saveAsPrivateSeed(req, title, 0);
+                return res.status(201).json({
+                    ...formatSeed(seed),
+                    savedAsPrivateDueToQuota: true,
+                    quota: {
+                        creditsNeeded: quotaResult.creditsNeeded,
+                        userCredits:   quotaResult.userCredits,
+                        message:       quotaResult.message,
+                    },
                 });
             }
         }
@@ -170,13 +214,17 @@ router.post('/with-duration', uploadSingle('audio'), (req, res) => {
         if (isPublic) {
             quotaResult = checkAndConsumeQuota(req.user.id, 'upload');
             if (!quotaResult.allowed) {
-                // 音频已被 multer 写入磁盘，必须一并删掉，否则留下无法访问的孤儿文件
-                discardUpload(req);
-                return res.status(402).json({
-                    error: 'quota_exceeded',
-                    message: quotaResult.message,
-                    creditsNeeded: quotaResult.creditsNeeded,
-                    userCredits: quotaResult.userCredits,
+                // 公域配额（每日免费额度/灵叶）已不足：录音已完整落盘，
+                // 自动降级存为「私密种子」，不丢弃、不留孤儿；用户之后有额度时再自行转公域。
+                const seed = saveAsPrivateSeed(req, title, duration);
+                return res.status(201).json({
+                    ...formatSeed(seed),
+                    savedAsPrivateDueToQuota: true,
+                    quota: {
+                        creditsNeeded: quotaResult.creditsNeeded,
+                        userCredits:   quotaResult.userCredits,
+                        message:       quotaResult.message,
+                    },
                 });
             }
         }
