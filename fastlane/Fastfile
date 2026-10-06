@@ -11,15 +11,33 @@ APP_IDENTIFIER = "com.carolqin.timetreehole"
 
 # API Key 认证 (从环境变量读取)
 # 注意: fastlane 的 api_key 哈希用 :key 承载 .p8 内容 (:key_content / :key_filepath 为兼容别名)
+#
+# Codemagic 变量组 appstore_credentials 必须包含:
+#   APP_STORE_CONNECT_KEY_IDENTIFIER  (Key ID, 如 ZB2GGP327Z — 须与 .p8 文件对应)
+#   APP_STORE_CONNECT_ISSUER_ID       (UUID 格式, 密钥页面顶部)
+#   APP_STORE_CONNECT_KEY             (.p8 完整内容; 若变量配成“文件”则为容器内路径, 此处自动读取)
 def api_key_params
-  {
-    key_id: ENV["APP_STORE_CONNECT_KEY_IDENTIFIER"],
-    issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
-    key: ENV["APP_STORE_CONNECT_KEY"],
-    key_content: ENV["APP_STORE_CONNECT_KEY"],
-    # 普通 App Store 团队 (非企业版) — 不设置 cert 会无法判断团队类型而崩溃
-    in_house: false
-  }
+  key_env   = ENV["APP_STORE_CONNECT_KEY"]
+  key_id    = ENV["APP_STORE_CONNECT_KEY_IDENTIFIER"]
+  issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"]
+
+  missing = []
+  missing << "APP_STORE_CONNECT_KEY_IDENTIFIER" if key_id.to_s.strip.empty?
+  missing << "APP_STORE_CONNECT_ISSUER_ID"      if issuer_id.to_s.strip.empty?
+  missing << "APP_STORE_CONNECT_KEY"            if key_env.to_s.strip.empty?
+  unless missing.empty?
+    UI.user_error!("❌ Codemagic 变量组 appstore_credentials 缺少变量: #{missing.join(', ')}。" \
+                   "请到 Codemagic → App settings → Environment variables 补上 (注意变量名必须完全一致, 且勾选 Secure)。")
+  end
+
+  # 兼容两种 Codemagic 配置方式:
+  #  - 文本变量: APP_STORE_CONNECT_KEY = .p8 文件完整内容
+  #  - 文件变量: APP_STORE_CONNECT_KEY = 容器内 .p8 路径 (Codemagic 上传文件时变量值即路径)
+  if key_env.to_s.start_with?("/") && File.exist?(key_env)
+    { key_id: key_id, issuer_id: issuer_id, key_filepath: key_env, in_house: false }
+  else
+    { key_id: key_id, issuer_id: issuer_id, key: key_env, key_content: key_env, in_house: false }
+  end
 end
 
 # ------------------------------------------------------------
@@ -71,12 +89,7 @@ def cleanup_signing_assets!
     return
   end
 
-  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
-    key_id: ENV["APP_STORE_CONNECT_KEY_IDENTIFIER"],
-    issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
-    key: ENV["APP_STORE_CONNECT_KEY"],
-    in_house: false
-  )
+  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(api_key_params)
 
   # 1) 先删描述文件 (它引用证书, 先删更干净)
   profiles = Spaceship::ConnectAPI::Profile.all(
