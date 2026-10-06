@@ -129,6 +129,7 @@ app.post('/api/device/register', express.json(), (req, res) => {
 app.use('/api', authMiddleware);
 
 // 挂载路由
+app.use('/api/uploads',        require('./routes/upload-chunks')); // 真·分片上传 + 断点续传
 app.use('/api/seeds',         seedsRouter);
 app.use('/api/treehole',      treeholeRouter);
 app.use('/api/notifications', notifRouter);

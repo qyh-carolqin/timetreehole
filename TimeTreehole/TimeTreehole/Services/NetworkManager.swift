@@ -176,6 +176,39 @@ final class NetworkManager: @unchecked Sendable {
         throw lastError
     }
 
+    /// 上传单个分片（raw binary PUT），用于真·分片上传 / 断点续传。
+    /// 每片自带退避重试；单片失败只重传该片，不牵连整段录音。
+    func uploadChunk(uploadId: String, index: Int, data: Data, maxRetries: Int = 3) async throws {
+        guard let url = URL(string: "\(baseURL)/api/uploads/chunk?uploadId=\(uploadId)&index=\(index)") else {
+            throw APIError.networkError("无效的分片上传地址")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId,  forHTTPHeaderField: "X-Device-Id")
+        req.setValue(platform,  forHTTPHeaderField: "X-Platform")
+        req.setValue(model,     forHTTPHeaderField: "X-Model")
+        req.httpBody = data
+
+        var lastError: Error = APIError.unknown
+        for attempt in 0..<maxRetries {
+            do {
+                _ = try await executeVoid(req)
+                return
+            } catch let error as APIError {
+                guard error.isRetryable else { throw error }
+                lastError = error
+            } catch {
+                lastError = error
+            }
+            if attempt < maxRetries - 1 {
+                let backoff = UInt64(1_000_000_000) * UInt64(attempt + 1)
+                try? await Task.sleep(nanoseconds: backoff)
+            }
+        }
+        throw lastError
+    }
+
     // MARK: - 底层执行
 
     private func execute<T: Decodable>(_ request: URLRequest) async throws -> T {

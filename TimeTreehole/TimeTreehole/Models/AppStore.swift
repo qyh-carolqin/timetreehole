@@ -491,7 +491,7 @@ class AppStore: ObservableObject {
                     id: UUID(),
                     title: title.isEmpty ? "语音种子" : title,
                     duration: recorder.elapsedTime,
-                    privacy: privacy,
+                    privacy: result.privacy ?? privacy,
                     replyCount: 0,
                     createdAt: Date(),
                     audioURL: localURL,

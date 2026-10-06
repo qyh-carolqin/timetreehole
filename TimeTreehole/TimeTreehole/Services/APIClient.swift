@@ -16,31 +16,16 @@ final class APIClient {
     // MARK: — 种子管理
     // ============================================================
 
-    /// 上传语音种子（带录音文件 + 元数据）
+    /// 上传语音种子（真·分片上传 + 断点续传，委托给 ChunkedUploader）
     func uploadSeed(audioData: Data, title: String, duration: TimeInterval, privacy: VoicePrivacy) async throws -> SeedUploadResult {
-        let fields: [String: String] = [
-            "title":    title,
-            "duration": String(Int(duration)),
-            "privacy":  privacy.apiValue,
-        ]
-
         let fileName = "recording-\(Int(Date().timeIntervalSince1970)).m4a"
-        let response: UploadResponse = try await network.upload(
-            path: "/api/seeds/with-duration",
-            fileData: audioData,
+        let processedTitle = title.isEmpty ? "语音种子" : title
+        return try await ChunkedUploader.shared.upload(
+            audioData: audioData,
             fileName: fileName,
-            fields: fields
-        )
-
-        guard let uuid = response.uuid else {
-            throw APIError.decodingError("服务器未返回种子 UUID")
-        }
-
-        return SeedUploadResult(
-            uuid: uuid,
-            audioUrl: URL(string: "\(network.baseURL)/api/seeds/\(uuid)/audio")!,
-            creditsUsed: response.quota?.creditsUsed,
-            remainingFree: response.quota?.remainingFree
+            title: processedTitle,
+            duration: duration,
+            privacy: privacy
         )
     }
 
@@ -389,8 +374,10 @@ struct IAPVerifyResult: Decodable {
 struct SeedUploadResult {
     let uuid: String
     let audioUrl: URL
+    let privacy: VoicePrivacy?
     let creditsUsed: Int?
     let remainingFree: Int?
+    let savedAsPrivateDueToQuota: Bool
 }
 
 struct SeedPrivacyResult: Decodable {
