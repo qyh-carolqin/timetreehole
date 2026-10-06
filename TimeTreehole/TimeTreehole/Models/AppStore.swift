@@ -577,7 +577,7 @@ class AppStore: ObservableObject {
             return
         }
 
-        // 本地文件（我自己的种子）→ 直接播放
+        // 本地文件（我自己的种子）→ 直接播放，无需缓存自愈
         if url.isFileURL, FileManager.default.fileExists(atPath: url.path) {
             playLocalFile(at: url, logicalURL: seed.audioURL)
             return
@@ -593,9 +593,13 @@ class AppStore: ObservableObject {
 
         let cacheURL = AppStore.localAudioCacheURL(for: serverUUID)
 
-        // 已缓存则直接播放，避免重复下载
+        // 已缓存 → 直接播放（解码失败会自动自愈重下）
         if FileManager.default.fileExists(atPath: cacheURL.path) {
-            playLocalFile(at: cacheURL, logicalURL: seed.audioURL)
+            Task {
+                await playCachedAudio(cacheURL, logicalURL: seed.audioURL) {
+                    try await self.api.downloadAudio(uuid: serverUUID)
+                }
+            }
             return
         }
 
@@ -605,8 +609,45 @@ class AppStore: ObservableObject {
             do {
                 let data = try await api.downloadAudio(uuid: serverUUID)
                 try data.write(to: cacheURL)
-                playLocalFile(at: cacheURL, logicalURL: seed.audioURL)
+                await playCachedAudio(cacheURL, logicalURL: seed.audioURL) {
+                    try await self.api.downloadAudio(uuid: serverUUID)
+                }
             } catch {
+                player.status = .idle
+                showToast("音频加载失败")
+            }
+        }
+    }
+
+    /// 播放已落盘到 cacheURL 的音频。若解码失败（缓存损坏/下载截断），
+    /// 自动删除坏缓存并重新下载一次（自愈），解决「下载截断即永久坏」的老问题。
+    /// - Parameters:
+    ///   - cacheURL: 本地缓存文件路径
+    ///   - logicalURL: 种子的逻辑 audioURL（用于 UI 匹配当前播放项）
+    ///   - download: 重新拉取音频数据的闭包
+    ///   - healed: 是否已做过一次自愈（为 true 时不再重试，避免死循环）
+    private func playCachedAudio(
+        _ cacheURL: URL,
+        logicalURL: URL?,
+        download: @escaping () async throws -> Data,
+        healed: Bool = false
+    ) async {
+        playLocalFile(at: cacheURL, logicalURL: logicalURL)
+        // 给 AVAudioPlayer 一个极短窗口检测解码结果（解码错误会异步回调 status = .error）
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        if case .error = player.status {
+            if !healed {
+                try? FileManager.default.removeItem(at: cacheURL)
+                player.status = .loading
+                do {
+                    let data = try await download()
+                    try data.write(to: cacheURL)
+                    playLocalFile(at: cacheURL, logicalURL: logicalURL)
+                } catch {
+                    player.status = .idle
+                    showToast("音频加载失败")
+                }
+            } else {
                 player.status = .idle
                 showToast("音频加载失败")
             }
@@ -703,7 +744,11 @@ class AppStore: ObservableObject {
         let cacheURL = AppStore.localReplyCacheURL(for: reply.uuid)
 
         if FileManager.default.fileExists(atPath: cacheURL.path) {
-            playLocalFile(at: cacheURL, logicalURL: reply.audioURL)
+            Task {
+                await playCachedAudio(cacheURL, logicalURL: reply.audioURL) {
+                    try await self.api.downloadReplyAudio(uuid: reply.uuid)
+                }
+            }
             return
         }
 
@@ -712,7 +757,9 @@ class AppStore: ObservableObject {
             do {
                 let data = try await api.downloadReplyAudio(uuid: reply.uuid)
                 try data.write(to: cacheURL)
-                playLocalFile(at: cacheURL, logicalURL: reply.audioURL)
+                await playCachedAudio(cacheURL, logicalURL: reply.audioURL) {
+                    try await self.api.downloadReplyAudio(uuid: reply.uuid)
+                }
             } catch {
                 player.status = .idle
                 showToast("音频加载失败")

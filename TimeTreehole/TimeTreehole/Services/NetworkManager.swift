@@ -121,12 +121,14 @@ final class NetworkManager: @unchecked Sendable {
     // MARK: - Multipart 文件上传
 
     /// 上传音频文件 + 表单字段
+    /// - Parameter maxRetries: 可重试错误（网络/5xx/限流）的最大尝试次数，用于跨境慢链路容错
     func upload(
         path: String,
         fileData: Data,
         fileName: String,
         mimeType: String = "audio/mp4",
-        fields: [String: String] = [:]
+        fields: [String: String] = [:],
+        maxRetries: Int = 3
     ) async throws -> UploadResponse {
         let boundary = "Boundary-\(UUID().uuidString)"
         var body = Data()
@@ -152,7 +154,26 @@ final class NetworkManager: @unchecked Sendable {
             contentType: "multipart/form-data; boundary=\(boundary)"
         )
 
-        return try await execute(req)
+        // 慢链路容错：可重试错误（网络中断/5xx/限流）自动退避重试，避免跨境抖动直接丢种子。
+        // 413(文件过大)/402(额度不足) 等非可重试业务错误会立即失败。
+        var lastError: Error = APIError.unknown
+        for attempt in 0..<maxRetries {
+            do {
+                return try await execute(req)
+            } catch let error as APIError {
+                // 业务错误：只有可重试的（5xx/限流）才重试，其余立即失败
+                guard error.isRetryable else { throw error }
+                lastError = error
+            } catch {
+                // 网络层错误（超时/连接中断/重置）一律可重试
+                lastError = error
+            }
+            if attempt < maxRetries - 1 {
+                let backoff = UInt64(1_000_000_000) * UInt64(attempt + 1) // 1s, 2s 退避
+                try? await Task.sleep(nanoseconds: backoff)
+            }
+        }
+        throw lastError
     }
 
     // MARK: - 底层执行
