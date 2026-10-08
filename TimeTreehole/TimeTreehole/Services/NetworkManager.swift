@@ -22,8 +22,8 @@ final class NetworkManager: @unchecked Sendable {
 
     private init() {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest  = 30
-        config.timeoutIntervalForResource = 120
+        config.timeoutIntervalForRequest  = 60
+        config.timeoutIntervalForResource = 300
         config.httpMaximumConnectionsPerHost = 4
         session  = URLSession(configuration: config)
         decoder  = JSONDecoder()

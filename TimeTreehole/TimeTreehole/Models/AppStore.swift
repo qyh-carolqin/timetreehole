@@ -562,6 +562,62 @@ class AppStore: ObservableObject {
         showToast("已保存到本地，连接恢复后自动上传")
     }
 
+    // MARK: - 本地草稿自动恢复
+
+    /// 扫描本地兜底目录里尚未上传成功的草稿（无 serverUUID 的 m4a 文件）
+    private func scanLocalDraftFiles() -> [URL] {
+        let fm = FileManager.default
+        try? fm.createDirectory(at: draftsDir, withIntermediateDirectories: true)
+        guard let files = try? fm.contentsOfDirectory(
+            at: draftsDir,
+            includingPropertiesForKeys: [.contentModificationDateKey]
+        ) else { return [] }
+        return files.filter { $0.pathExtension.lowercased() == "m4a" }
+    }
+
+    /// 把本地草稿作为种子合并进「我的种子」列表，重开 App / 下拉刷新后也不消失
+    private func localDraftSeeds() -> [VoiceSeed] {
+        scanLocalDraftFiles().map { url in
+            let mtime = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate ?? Date()
+            return VoiceSeed(
+                id: UUID(),
+                title: "语音种子（本地）",
+                duration: 0,
+                privacy: .private,
+                replyCount: 0,
+                createdAt: mtime,
+                audioURL: url
+            )
+        }
+    }
+
+    /// 应用启动 / 网络恢复时自动把本地草稿重新上传到服务器，成功后删除本地文件
+    func retryLocalDrafts() async {
+        guard !isRetryingDrafts else { return }
+        isRetryingDrafts = true
+        defer { isRetryingDrafts = false }
+
+        for url in scanLocalDraftFiles() {
+            do {
+                let data = try Data(contentsOf: url)
+                _ = try await api.uploadSeed(
+                    audioData: data,
+                    title: "语音种子",
+                    duration: 0,
+                    privacy: .private
+                )
+                // 上传成功：删除本地草稿，避免重复上传
+                try? FileManager.default.removeItem(at: url)
+            } catch {
+                // 仍失败：保留本地文件，等下次重试
+                continue
+            }
+        }
+        // 刷新列表：云端已出现对应种子，本地草稿条目自然消失
+        await fetchMySeeds()
+    }
+
     func discardRecording() {
         recorder.cancelRecording()
         isRecording = false

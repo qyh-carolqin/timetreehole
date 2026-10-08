@@ -16,8 +16,9 @@ final class ChunkedUploader {
 
     private let network = NetworkManager.shared
 
-    /// 每片大小：1MB。对 20MB 上限约 20 片；慢链路下单片传输远小于 Caddy 600s 超时。
-    private let chunkSize = 1 * 1024 * 1024
+    /// 每片大小：512KB。对 20MB 上限约 40 片；更小的片在跨境慢链路上更易在单次请求内传完，
+    /// 避免单片过大被链路重置导致反复重传。
+    private let chunkSize = 512 * 1024
 
     private init() {}
 
