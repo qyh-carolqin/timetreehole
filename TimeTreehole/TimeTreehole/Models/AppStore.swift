@@ -54,6 +54,7 @@ class AppStore: ObservableObject {
     @Published var isLoadingTreehole = false
     @Published var isLoadingNotifications = false
     @Published var isUploading = false
+    @Published var isRetryingDrafts = false
 
     // MARK: - 录音相关
 
