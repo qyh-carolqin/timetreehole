@@ -312,6 +312,7 @@ class AppStore: ObservableObject {
     func loadAllData() async {
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.fetchMySeeds() }
+            group.addTask { await self.retryLocalDrafts() }
             group.addTask { await self.fetchNotifications() }
             group.addTask { await self.fetchTreeholeStats() }
             group.addTask { await self.fetchQuota() }
@@ -419,8 +420,9 @@ class AppStore: ObservableObject {
 
         do {
             let seeds = try await api.fetchMySeeds()
+            let drafts = localDraftSeeds(excluding: seeds)
             withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                mySeeds = seeds
+                mySeeds = drafts + seeds
             }
         } catch {
             // 生产环境不再把 `VoiceSeed.samples` 假数据塞进「我的种子」，
@@ -567,6 +569,9 @@ class AppStore: ObservableObject {
     /// 扫描本地兜底目录里尚未上传成功的草稿（无 serverUUID 的 m4a 文件）
     private func scanLocalDraftFiles() -> [URL] {
         let fm = FileManager.default
+        let draftsDir = fm.urls(for: .documentDirectory, in: .userDomainMask)
+            .first!
+            .appendingPathComponent("VoiceSeeds", isDirectory: true)
         try? fm.createDirectory(at: draftsDir, withIntermediateDirectories: true)
         guard let files = try? fm.contentsOfDirectory(
             at: draftsDir,
@@ -575,9 +580,14 @@ class AppStore: ObservableObject {
         return files.filter { $0.pathExtension.lowercased() == "m4a" }
     }
 
-    /// 把本地草稿作为种子合并进「我的种子」列表，重开 App / 下拉刷新后也不消失
-    private func localDraftSeeds() -> [VoiceSeed] {
-        scanLocalDraftFiles().map { url in
+    /// 把本地草稿作为种子合并进「我的种子」列表，重开 App / 下拉刷新后也不消失。
+    /// `excluding` 传云端已上传的种子，用于剔除与其文件名(<serverUUID>.m4a)同名的本地缓存，避免重复显示。
+    private func localDraftSeeds(excluding uploaded: [VoiceSeed]) -> [VoiceSeed] {
+        let uploadedUUIDs = Set(uploaded.compactMap { $0.serverUUID })
+        return scanLocalDraftFiles().compactMap { url in
+            // 已成功上传的种子其本地缓存文件名为 <serverUUID>.m4a，跳过以免和云端条目重复
+            let base = url.deletingPathExtension().lastPathComponent
+            if uploadedUUIDs.contains(base) { return nil }
             let mtime = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
                 .contentModificationDate ?? Date()
             return VoiceSeed(
@@ -598,7 +608,15 @@ class AppStore: ObservableObject {
         isRetryingDrafts = true
         defer { isRetryingDrafts = false }
 
+        // 已上传种子的本地缓存文件名为 <serverUUID>.m4a，跳过以免重复上传
+        var uploadedUUIDs = Set<String>()
+        if let cloud = try? await api.fetchMySeeds() {
+            uploadedUUIDs = Set(cloud.compactMap { $0.serverUUID })
+        }
+
         for url in scanLocalDraftFiles() {
+            let base = url.deletingPathExtension().lastPathComponent
+            if uploadedUUIDs.contains(base) { continue }
             do {
                 let data = try Data(contentsOf: url)
                 _ = try await api.uploadSeed(

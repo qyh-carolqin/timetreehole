@@ -178,7 +178,7 @@ final class NetworkManager: @unchecked Sendable {
 
     /// 上传单个分片（raw binary PUT），用于真·分片上传 / 断点续传。
     /// 每片自带退避重试；单片失败只重传该片，不牵连整段录音。
-    func uploadChunk(uploadId: String, index: Int, data: Data, maxRetries: Int = 3) async throws {
+    func uploadChunk(uploadId: String, index: Int, data: Data, maxRetries: Int = 8) async throws {
         guard let url = URL(string: "\(baseURL)/api/uploads/chunk?uploadId=\(uploadId)&index=\(index)") else {
             throw APIError.networkError("无效的分片上传地址")
         }
@@ -202,8 +202,9 @@ final class NetworkManager: @unchecked Sendable {
                 lastError = error
             }
             if attempt < maxRetries - 1 {
-                let backoff = UInt64(1_000_000_000) * UInt64(attempt + 1)
-                try? await Task.sleep(nanoseconds: backoff)
+                // 指数退避并封顶 8s：1s, 2s, 4s, 8s, 8s...
+                let seconds = min(1 << attempt, 8)
+                try? await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000)
             }
         }
         throw lastError
