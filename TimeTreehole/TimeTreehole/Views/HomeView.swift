@@ -293,6 +293,8 @@ struct HomeView: View {
             .background(TreeholeColors.bgSurfaceElevated)
             .clipShape(RoundedRectangle(cornerRadius: TreeholeRadius.lg))
             .padding(.horizontal, 40)
+            }
+        }
     }
 
     // MARK: - Toast
