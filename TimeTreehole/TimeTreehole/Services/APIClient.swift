@@ -17,7 +17,13 @@ final class APIClient {
     // ============================================================
 
     /// 上传语音种子（真·分片上传 + 断点续传，委托给 ChunkedUploader）
-    func uploadSeed(audioData: Data, title: String, duration: TimeInterval, privacy: VoicePrivacy) async throws -> SeedUploadResult {
+    func uploadSeed(
+        audioData: Data,
+        title: String,
+        duration: TimeInterval,
+        privacy: VoicePrivacy,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async throws -> SeedUploadResult {
         let fileName = "recording-\(Int(Date().timeIntervalSince1970)).m4a"
         let processedTitle = title.isEmpty ? "语音种子" : title
         return try await ChunkedUploader.shared.upload(
@@ -25,7 +31,8 @@ final class APIClient {
             fileName: fileName,
             title: processedTitle,
             duration: duration,
-            privacy: privacy
+            privacy: privacy,
+            onProgress: onProgress
         )
     }
 

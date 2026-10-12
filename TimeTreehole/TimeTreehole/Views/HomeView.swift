@@ -66,6 +66,11 @@ struct HomeView: View {
             if store.showToast, let msg = store.toastMessage {
                 toastView(message: msg)
             }
+
+            // ---- 上传中反馈 ----
+            if store.isUploading {
+                uploadingOverlay
+            }
         }
         .onDisappear {
             // 离开页面时停止播放
@@ -265,6 +270,29 @@ struct HomeView: View {
                     )
             )
         }
+    }
+
+    // MARK: - 上传中反馈
+
+    private var uploadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+                .onTapGesture { /* 上传中不可取消 */ }
+
+            VStack(spacing: 16) {
+                ProgressView()
+                    .scaleEffect(1.4)
+                    .tint(TreeholeColors.accentPrimary)
+
+                Text(store.uploadProgressText.isEmpty ? "上传中…" : store.uploadProgressText)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(TreeholeColors.textPrimary)
+            }
+            .padding(28)
+            .background(TreeholeColors.bgSurfaceElevated)
+            .clipShape(RoundedRectangle(cornerRadius: TreeholeRadius.lg))
+            .padding(.horizontal, 40)
     }
 
     // MARK: - Toast

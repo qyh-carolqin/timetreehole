@@ -178,12 +178,14 @@ final class NetworkManager: @unchecked Sendable {
 
     /// 上传单个分片（raw binary PUT），用于真·分片上传 / 断点续传。
     /// 每片自带退避重试；单片失败只重传该片，不牵连整段录音。
-    func uploadChunk(uploadId: String, index: Int, data: Data, maxRetries: Int = 8) async throws {
+    func uploadChunk(uploadId: String, index: Int, data: Data, maxRetries: Int = 5) async throws {
         guard let url = URL(string: "\(baseURL)/api/uploads/chunk?uploadId=\(uploadId)&index=\(index)") else {
             throw APIError.networkError("无效的分片上传地址")
         }
         var req = URLRequest(url: url)
         req.httpMethod = "PUT"
+        // 单片超时收紧到 20s：跨境慢链路下单片 60s 超时太磨蹭，失败要等很久才兜底。
+        req.timeoutInterval = 20
         req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         req.setValue(deviceId,  forHTTPHeaderField: "X-Device-Id")
         req.setValue(platform,  forHTTPHeaderField: "X-Platform")
@@ -202,8 +204,8 @@ final class NetworkManager: @unchecked Sendable {
                 lastError = error
             }
             if attempt < maxRetries - 1 {
-                // 指数退避并封顶 8s：1s, 2s, 4s, 8s, 8s...
-                let seconds = min(1 << attempt, 8)
+                // 指数退避并封顶 5s：1s, 2s, 4s, 5s, 5s
+                let seconds = min(1 << attempt, 5)
                 try? await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000)
             }
         }

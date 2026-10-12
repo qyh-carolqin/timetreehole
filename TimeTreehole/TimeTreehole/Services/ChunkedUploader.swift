@@ -92,66 +92,74 @@ final class ChunkedUploader {
         fileName: String,
         title: String,
         duration: TimeInterval,
-        privacy: VoicePrivacy
+        privacy: VoicePrivacy,
+        onProgress: ((Int, Int) -> Void)? = nil
     ) async throws -> SeedUploadResult {
         let key = resumeKey(for: audioData)
         let total = totalChunks(for: audioData.count)
 
-        // 1) 取/建会话
-        var st: ResumeState
-        if let existing = loadState(for: key), existing.totalChunks == total {
-            st = existing
-        } else {
-            st = try await createSession(
-                fileName: fileName, title: title, duration: duration,
-                privacy: privacy, total: total, fileSize: audioData.count, key: key
-            )
-        }
+        do {
+            // 1) 取/建会话
+            var st: ResumeState
+            if let existing = loadState(for: key), existing.totalChunks == total {
+                st = existing
+            } else {
+                st = try await createSession(
+                    fileName: fileName, title: title, duration: duration,
+                    privacy: privacy, total: total, fileSize: audioData.count, key: key
+                )
+            }
 
-        // 2) 查服务端已接收分片（断点续传）；会话失效则重建
-        var done = Set<Int>()
-        let status: UploadStatusResponse? = try? await network.request("/api/uploads/status?uploadId=\(st.uploadId)")
-        if let status {
-            done = Set(status.received)
-            st.uploaded = Array(done).sorted()
-            saveState(st, for: key)
-        } else {
+            // 2) 查服务端已接收分片（断点续传）；会话失效则重建
+            var done = Set<Int>()
+            let status: UploadStatusResponse? = try? await network.request("/api/uploads/status?uploadId=\(st.uploadId)")
+            if let status {
+                done = Set(status.received)
+                st.uploaded = Array(done).sorted()
+                saveState(st, for: key)
+            } else {
+                clearState(for: key)
+                st = try await createSession(
+                    fileName: fileName, title: title, duration: duration,
+                    privacy: privacy, total: total, fileSize: audioData.count, key: key
+                )
+            }
+
+            // 3) 逐片补传缺失分片（每片自带重试）
+            for i in 0..<total {
+                if done.contains(i) { continue }
+                let chunk = audioData.subdata(in: rangeOfChunk(i, totalSize: audioData.count))
+                try await network.uploadChunk(uploadId: st.uploadId, index: i, data: chunk)
+                done.insert(i)
+                st.uploaded = Array(done).sorted()
+                saveState(st, for: key)
+                onProgress?(done.count, total)
+            }
+
+            // 4) 合并落库
+            let completeResp: UploadCompleteResponse = try await network.request(
+                "/api/uploads/complete?uploadId=\(st.uploadId)", method: "POST"
+            )
+
+            // 成功后清续传进度
             clearState(for: key)
-            st = try await createSession(
-                fileName: fileName, title: title, duration: duration,
-                privacy: privacy, total: total, fileSize: audioData.count, key: key
+
+            let uuid = completeResp.uuid
+            let audioUrl = URL(string: "\(network.baseURL)/api/seeds/\(uuid)/audio")!
+            let resultPrivacy = completeResp.privacy.flatMap { VoicePrivacy(serverValue: $0) }
+            return SeedUploadResult(
+                uuid: uuid,
+                audioUrl: audioUrl,
+                privacy: resultPrivacy,
+                creditsUsed: completeResp.quota?.creditsUsed,
+                remainingFree: completeResp.quota?.remainingFree,
+                savedAsPrivateDueToQuota: completeResp.savedAsPrivateDueToQuota ?? false
             )
+        } catch {
+            // 失败则清掉续传进度，避免残留 partial 状态让下次重录同内容时卡在「已收第0片」
+            clearState(for: key)
+            throw error
         }
-
-        // 3) 逐片补传缺失分片（每片自带重试）
-        for i in 0..<total {
-            if done.contains(i) { continue }
-            let chunk = audioData.subdata(in: rangeOfChunk(i, totalSize: audioData.count))
-            try await network.uploadChunk(uploadId: st.uploadId, index: i, data: chunk)
-            done.insert(i)
-            st.uploaded = Array(done).sorted()
-            saveState(st, for: key)
-        }
-
-        // 4) 合并落库
-        let completeResp: UploadCompleteResponse = try await network.request(
-            "/api/uploads/complete?uploadId=\(st.uploadId)", method: "POST"
-        )
-
-        // 成功后清续传进度
-        clearState(for: key)
-
-        let uuid = completeResp.uuid
-        let audioUrl = URL(string: "\(network.baseURL)/api/seeds/\(uuid)/audio")!
-        let resultPrivacy = completeResp.privacy.flatMap { VoicePrivacy(serverValue: $0) }
-        return SeedUploadResult(
-            uuid: uuid,
-            audioUrl: audioUrl,
-            privacy: resultPrivacy,
-            creditsUsed: completeResp.quota?.creditsUsed,
-            remainingFree: completeResp.quota?.remainingFree,
-            savedAsPrivateDueToQuota: completeResp.savedAsPrivateDueToQuota ?? false
-        )
     }
 }
 
