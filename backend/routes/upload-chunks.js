@@ -65,16 +65,20 @@ function ensureOwner(uploadId, userId) {
 }
 
 /// 清理超过 TTL 的过期会话（防磁盘堆积孤儿）
+/// 优先用 meta.createdAt 判断；meta 缺失/损坏时回退到目录 mtime，
+/// 避免误删「刚 mkdir 但 meta 还没写好」的活动会话。
 function cleanupExpiredSessions() {
     try {
         const now = Date.now();
         for (const name of fs.readdirSync(chunksRoot)) {
             const dir = path.join(chunksRoot, name);
             try {
-                if (!fs.statSync(dir).isDirectory()) continue;
+                const st = fs.statSync(dir);
+                if (!st.isDirectory()) continue;
                 const meta = readMeta(name);
-                const created = meta?.createdAt ? new Date(meta.createdAt).getTime() : 0;
-                if (now - created > SESSION_TTL_MS) {
+                const createdAt = meta?.createdAt ? new Date(meta.createdAt).getTime() : 0;
+                const refTime = (createdAt && !Number.isNaN(createdAt)) ? createdAt : st.mtimeMs;
+                if (now - refTime > SESSION_TTL_MS) {
                     fs.rmSync(dir, { recursive: true, force: true });
                     console.log(`[Chunks] 清理过期会话: ${name}`);
                 }
@@ -296,5 +300,25 @@ router.post('/abort', express.json(), (req, res) => {
         res.status(500).json({ error: 'abort_failed' });
     }
 });
+
+// ============================================================
+// 定时清理孤儿会话（独立于用户上传，防磁盘泄漏）
+//  - 仅在 NODE_ENV=production 启用（与 server.js 启动期清理同一约定）
+//  - 进程启动即扫一次（清掉部署前残留的过期会话），
+//    之后每 CHUNK_CLEANUP_INTERVAL_MS（默认 6h，可 env 覆盖）扫一次
+// ============================================================
+const CHUNK_CLEANUP_INTERVAL =
+    Number(process.env.CHUNK_CLEANUP_INTERVAL_MS) || 6 * 60 * 60 * 1000;
+
+if (process.env.NODE_ENV === 'production') {
+    cleanupExpiredSessions();
+    setInterval(() => {
+        try { cleanupExpiredSessions(); }
+        catch (_) { /* 不影响主进程 */ }
+    }, CHUNK_CLEANUP_INTERVAL);
+    console.log(
+        `[Chunks] 已启用孤儿会话定时清理（间隔 ${CHUNK_CLEANUP_INTERVAL / 3_600_000}h，TTL ${SESSION_TTL_MS / 3_600_000}h）`
+    );
+}
 
 module.exports = router;
