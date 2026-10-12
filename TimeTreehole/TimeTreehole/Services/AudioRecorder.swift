@@ -233,6 +233,10 @@ final class AudioRecorder: NSObject, ObservableObject {
         timer?.invalidate()
         meteringTimer?.invalidate()
         recorder = nil
+        // 清理录制产生的临时文件，避免上传成功后临时目录仍残留（导致下次被误当草稿重复上传）
+        if let url = recordingURL, FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.removeItem(at: url)
+        }
         recordingURL = nil
         recordedFileURL = nil
         elapsedTime = 0

@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import SwiftUI
 import StoreKit
+import CryptoKit
 
 // MARK: - 应用状态管理（网络版 · 含灵叶额度系统 + App Store IAP）
 
@@ -569,18 +570,24 @@ class AppStore: ObservableObject {
 
     // MARK: - 本地草稿自动恢复
 
-    /// 扫描本地兜底目录里尚未上传成功的草稿（无 serverUUID 的 m4a 文件）
+    /// 扫描本地草稿：① VoiceSeeds/ 下「上传失败兜底存留」的草稿；② tmp/TimeTreehole/ 下「上传卡死未兜底」的残留。
+    /// 两者都是完整录音文件，冷启动会被 retryLocalDrafts 重传救回。
     private func scanLocalDraftFiles() -> [URL] {
         let fm = FileManager.default
-        let draftsDir = fm.urls(for: .documentDirectory, in: .userDomainMask)
-            .first!
-            .appendingPathComponent("VoiceSeeds", isDirectory: true)
+        let docsDir = fm.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let draftsDir = docsDir.appendingPathComponent("VoiceSeeds", isDirectory: true)
+        let tmpDir = fm.temporaryDirectory
+            .appendingPathComponent("TimeTreehole", isDirectory: true)
         try? fm.createDirectory(at: draftsDir, withIntermediateDirectories: true)
-        guard let files = try? fm.contentsOfDirectory(
-            at: draftsDir,
-            includingPropertiesForKeys: [.contentModificationDateKey]
-        ) else { return [] }
-        return files.filter { $0.pathExtension.lowercased() == "m4a" }
+        var result: [URL] = []
+        for dir in [draftsDir, tmpDir] {
+            guard let files = try? fm.contentsOfDirectory(
+                at: dir,
+                includingPropertiesForKeys: [.contentModificationDateKey]
+            ) else { continue }
+            result.append(contentsOf: files.filter { $0.pathExtension.lowercased() == "m4a" })
+        }
+        return result
     }
 
     /// 把本地草稿作为种子合并进「我的种子」列表，重开 App / 下拉刷新后也不消失。
@@ -611,15 +618,38 @@ class AppStore: ObservableObject {
         isRetryingDrafts = true
         defer { isRetryingDrafts = false }
 
-        // 已上传种子的本地缓存文件名为 <serverUUID>.m4a，跳过以免重复上传
+        // 已上传种子的 serverUUID 集合（其本地缓存 <uuid>.m4a 需排除，避免重复上传）
         var uploadedUUIDs = Set<String>()
         if let cloud = try? await api.fetchMySeeds() {
             uploadedUUIDs = Set(cloud.compactMap { $0.serverUUID })
         }
 
+        // 已上传种子的本地缓存内容 hash：用于去重，避免把「历史成功上传残留的 tmp 文件」再上传一遍产生重复种子
+        let fm = FileManager.default
+        let docsDir = fm.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let draftsDir = docsDir.appendingPathComponent("VoiceSeeds", isDirectory: true)
+        var uploadedContentHashes = Set<String>()
+        if let cached = try? fm.contentsOfDirectory(at: draftsDir, includingPropertiesForKeys: nil) {
+            for f in cached where f.pathExtension.lowercased() == "m4a" {
+                let base = f.deletingPathExtension().lastPathComponent
+                if uploadedUUIDs.contains(base), let h = sha256(of: f) {
+                    uploadedContentHashes.insert(h)
+                }
+            }
+        }
+
         for url in scanLocalDraftFiles() {
-            let base = url.deletingPathExtension().lastPathComponent
-            if uploadedUUIDs.contains(base) { continue }
+            let nameBase = url.deletingPathExtension().lastPathComponent
+            if uploadedUUIDs.contains(nameBase) { continue }  // 已上传缓存，跳过
+
+            // tmp 目录的历史残留：若内容与某已上传缓存相同，视为重复，直接删除避免产生重复种子
+            if url.path.contains("/TimeTreehole/") {
+                if let h = sha256(of: url), uploadedContentHashes.contains(h) {
+                    try? fm.removeItem(at: url)
+                    continue
+                }
+            }
+
             do {
                 let data = try Data(contentsOf: url)
                 _ = try await api.uploadSeed(
@@ -628,8 +658,8 @@ class AppStore: ObservableObject {
                     duration: 0,
                     privacy: .private
                 )
-                // 上传成功：删除本地草稿，避免重复上传
-                try? FileManager.default.removeItem(at: url)
+                // 上传成功：删除本地残留（tmp 卡死残留 或 VoiceSeeds 兜底草稿），避免重复上传
+                try? fm.removeItem(at: url)
             } catch {
                 // 仍失败：保留本地文件，等下次重试
                 continue
@@ -637,6 +667,13 @@ class AppStore: ObservableObject {
         }
         // 刷新列表：云端已出现对应种子，本地草稿条目自然消失
         await fetchMySeeds()
+    }
+
+    /// 计算文件 SHA256（用于去重：避免把历史已成功上传的 tmp 残留当作新草稿重复上传）
+    private func sha256(of url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let digest = SHA256.hash(data: data)
+        return digest.compactMap { String(format: "%02x", $0) }.joined()
     }
 
     func discardRecording() {
